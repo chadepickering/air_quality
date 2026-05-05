@@ -1,0 +1,43 @@
+# Environment
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Data (gitignored — run ingestion scripts to populate)
+data/raw/
+data/processed/
+
+# Trained model checkpoints
+models/lstm/checkpoints/
+models/tft/checkpoints/
+models/deepar/checkpoints/
+*.pt
+*.h5
+*.pkl
+
+# Experiment tracking
+wandb/
+
+# Jupyter
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Spark
+derby.log
+metastore_db/
+spark-warehouse/
+
+# InfluxDB / Kafka local state
+/tmp/aq_checkpoint/

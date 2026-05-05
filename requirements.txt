@@ -1,0 +1,48 @@
+# Data ingestion and storage
+requests
+duckdb
+pandas
+python-dotenv
+haversine
+
+# Kafka
+kafka-python
+
+# PySpark streaming
+pyspark
+
+# Time series models
+torch
+pytorch-forecasting
+lightning
+gluonts[torch]
+tensorflow
+keras
+
+# Scientific computing
+numpy
+scipy
+scikit-learn
+
+# Probabilistic metrics
+properscoring          # CRPS
+
+# Experiment tracking
+wandb
+
+# InfluxDB client
+influxdb-client
+
+# Visualization and interface
+streamlit
+plotly
+folium
+streamlit-folium
+
+# Testing
+pytest
+pytest-cov
+
+# Notebooks
+jupyter
+ipykernel

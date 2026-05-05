@@ -1,0 +1,12 @@
+.venv/
+.git/
+__pycache__/
+*.pyc
+data/raw/
+data/processed/
+wandb/
+models/lstm/checkpoints/
+models/tft/checkpoints/
+models/deepar/checkpoints/
+.env
+notebooks/
