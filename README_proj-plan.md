@@ -4,8 +4,6 @@
 
 An end-to-end real-time environmental data pipeline that ingests streaming air quality sensor readings from multiple monitoring stations across the LA metro area, forecasts PM2.5 concentrations at multiple time horizons using three time series models, and generates probabilistic public health alerts when predicted air quality is projected to breach EPA threshold levels. The system demonstrates production-grade streaming infrastructure, state-of-the-art probabilistic time series deep learning, spatial feature engineering, and operational monitoring — all on freely available public data with zero cloud cost.
 
-**Type:** Independent production ML/AI project  
-**Status:** Implementation in progress  
 **Total cost to run:** $0 (fully open-source stack)
 
 ---
