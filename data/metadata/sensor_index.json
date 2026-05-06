@@ -1,0 +1,877 @@
+{
+  "1502": {
+    "station_id": "847",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "1876": {
+    "station_id": "1042",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "22301": {
+    "station_id": "1042",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "24900": {
+    "station_id": "1200",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "24901": {
+    "station_id": "1200",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "2154": {
+    "station_id": "1200",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "2152": {
+    "station_id": "1200",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "2150": {
+    "station_id": "1200",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "2306": {
+    "station_id": "1290",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "2311": {
+    "station_id": "1290",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "2312": {
+    "station_id": "1290",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "2554": {
+    "station_id": "1310",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "25149": {
+    "station_id": "1310",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "2362": {
+    "station_id": "1310",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "2668": {
+    "station_id": "1512",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "18349": {
+    "station_id": "1512",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "22321": {
+    "station_id": "1512",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "8681": {
+    "station_id": "1575",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "8684": {
+    "station_id": "1575",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "2772": {
+    "station_id": "1575",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "2773": {
+    "station_id": "1575",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "2775": {
+    "station_id": "1575",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "2794": {
+    "station_id": "1585",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "2793": {
+    "station_id": "1585",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "2792": {
+    "station_id": "1585",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "2976": {
+    "station_id": "1681",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "22299": {
+    "station_id": "1681",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "2994": {
+    "station_id": "1692",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "13965354": {
+    "station_id": "1692",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "2993": {
+    "station_id": "1692",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25258": {
+    "station_id": "1811",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "25259": {
+    "station_id": "1811",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "3207": {
+    "station_id": "1811",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "3208": {
+    "station_id": "1811",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "3210": {
+    "station_id": "1811",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "3366": {
+    "station_id": "1902",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "22302": {
+    "station_id": "1902",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "3364": {
+    "station_id": "1902",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25553": {
+    "station_id": "1948",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "25552": {
+    "station_id": "1948",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "3446": {
+    "station_id": "1948",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "13574377": {
+    "station_id": "1948",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25551": {
+    "station_id": "1948",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "3521": {
+    "station_id": "1988",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "3522": {
+    "station_id": "1988",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25703": {
+    "station_id": "1989",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "25704": {
+    "station_id": "1989",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "3524": {
+    "station_id": "1989",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "3523": {
+    "station_id": "1989",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "8678": {
+    "station_id": "2121",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "8682": {
+    "station_id": "2121",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "3814": {
+    "station_id": "2121",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "3813": {
+    "station_id": "2121",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "3812": {
+    "station_id": "2121",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25574": {
+    "station_id": "2138",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "25575": {
+    "station_id": "2138",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "3843": {
+    "station_id": "2138",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "3842": {
+    "station_id": "2138",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25926": {
+    "station_id": "5791",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "13296645": {
+    "station_id": "5791",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "15731": {
+    "station_id": "5791",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "5077768": {
+    "station_id": "5792",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "13575454": {
+    "station_id": "5792",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "15154094": {
+    "station_id": "5792",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "21544": {
+    "station_id": "7395",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "22579": {
+    "station_id": "7759",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25945": {
+    "station_id": "7884",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "1297486": {
+    "station_id": "7884",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "22857": {
+    "station_id": "7884",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "23019": {
+    "station_id": "7936",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "25192": {
+    "station_id": "7936",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "25193": {
+    "station_id": "7936",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "25195": {
+    "station_id": "7936",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25196": {
+    "station_id": "7936",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "24002": {
+    "station_id": "8236",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "24001": {
+    "station_id": "8236",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "24000": {
+    "station_id": "8236",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "24862": {
+    "station_id": "8561",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "24863": {
+    "station_id": "8561",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "24864": {
+    "station_id": "8561",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "10577008": {
+    "station_id": "8561",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "5085369": {
+    "station_id": "8561",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25136": {
+    "station_id": "8665",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "25137": {
+    "station_id": "8665",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "25138": {
+    "station_id": "8665",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "25139": {
+    "station_id": "8665",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25140": {
+    "station_id": "8665",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25187": {
+    "station_id": "8679",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "25188": {
+    "station_id": "8679",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "25189": {
+    "station_id": "8679",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "1562237": {
+    "station_id": "8679",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "1603568": {
+    "station_id": "8679",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25260": {
+    "station_id": "8699",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "25261": {
+    "station_id": "8699",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "14270448": {
+    "station_id": "8699",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25262": {
+    "station_id": "8699",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25488": {
+    "station_id": "8737",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "25489": {
+    "station_id": "8737",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25523": {
+    "station_id": "8750",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "25522": {
+    "station_id": "8750",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25580": {
+    "station_id": "8773",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "25581": {
+    "station_id": "8773",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "25582": {
+    "station_id": "8773",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "25584": {
+    "station_id": "8773",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25585": {
+    "station_id": "8773",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "5077748": {
+    "station_id": "8838",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "5077684": {
+    "station_id": "8838",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "5077565": {
+    "station_id": "8838",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25902": {
+    "station_id": "8875",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "25901": {
+    "station_id": "8875",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "25900": {
+    "station_id": "8875",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "25899": {
+    "station_id": "8875",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25898": {
+    "station_id": "8875",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "25919": {
+    "station_id": "8882",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "25920": {
+    "station_id": "8882",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "5079489": {
+    "station_id": "8890",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "5079488": {
+    "station_id": "8890",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "5079490": {
+    "station_id": "8890",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "5079486": {
+    "station_id": "8890",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "5079487": {
+    "station_id": "8890",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "225726": {
+    "station_id": "26707",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "1330050": {
+    "station_id": "26707",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "9636797": {
+    "station_id": "26780",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "9636796": {
+    "station_id": "26780",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "225727": {
+    "station_id": "26781",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "1316149": {
+    "station_id": "26781",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "1316155": {
+    "station_id": "26781",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "225738": {
+    "station_id": "29212",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "225715": {
+    "station_id": "29212",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "225712": {
+    "station_id": "29212",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "1284763": {
+    "station_id": "29212",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "1284764": {
+    "station_id": "29212",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "5087772": {
+    "station_id": "32892",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "5087781": {
+    "station_id": "32892",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "5087777": {
+    "station_id": "32892",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "5087785": {
+    "station_id": "32892",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "5087773": {
+    "station_id": "32892",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "225780": {
+    "station_id": "32896",
+    "parameter": "co",
+    "unit": "ppm"
+  },
+  "225777": {
+    "station_id": "32896",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "225782": {
+    "station_id": "32896",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "1284753": {
+    "station_id": "32896",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "1284754": {
+    "station_id": "32896",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "5079585": {
+    "station_id": "40279",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "5079583": {
+    "station_id": "40279",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "5079584": {
+    "station_id": "40279",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "5077914": {
+    "station_id": "53253",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "5077915": {
+    "station_id": "53253",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "386018": {
+    "station_id": "57685",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "1316140": {
+    "station_id": "57685",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "3411882": {
+    "station_id": "617545",
+    "parameter": "no2",
+    "unit": "ppm"
+  },
+  "3411883": {
+    "station_id": "617545",
+    "parameter": "o3",
+    "unit": "ppm"
+  },
+  "3411885": {
+    "station_id": "617545",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "3411884": {
+    "station_id": "617545",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "10658796": {
+    "station_id": "3069192",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "11216474": {
+    "station_id": "3069193",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "10660362": {
+    "station_id": "3069193",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "10658797": {
+    "station_id": "3069194",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "10659115": {
+    "station_id": "3069195",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "12305572": {
+    "station_id": "3423890",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "12249631": {
+    "station_id": "3423890",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "12305254": {
+    "station_id": "3492757",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "12306520": {
+    "station_id": "3492757",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "12306832": {
+    "station_id": "3492758",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "12306831": {
+    "station_id": "3492758",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "12318135": {
+    "station_id": "3508358",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "12337966": {
+    "station_id": "3508358",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "12337967": {
+    "station_id": "3532530",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "12337965": {
+    "station_id": "3532530",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "12337964": {
+    "station_id": "3532531",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "12338251": {
+    "station_id": "3532531",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "12377166": {
+    "station_id": "3581456",
+    "parameter": "pm10",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "12376848": {
+    "station_id": "3581456",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "13179311": {
+    "station_id": "4550834",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "13288294": {
+    "station_id": "4683223",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  },
+  "14679598": {
+    "station_id": "6136584",
+    "parameter": "pm25",
+    "unit": "\u00b5g/m\u00b3"
+  }
+}

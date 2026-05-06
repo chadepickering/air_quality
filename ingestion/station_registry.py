@@ -16,6 +16,64 @@ LAMBDA_DEFAULT = 0.0005
 
 METADATA_DIR = Path("data/metadata")
 
+# Stations within this distance are treated as the same physical site.
+# Grounded in observed data: same-site GPS precision differences top out at ~161m;
+# clear relocations start at ~359m. 250m sits cleanly in the gap.
+DEDUP_THRESHOLD_M = 250.0
+
+
+def deduplicate_stations(
+    stations: list[dict],
+    threshold_m: float = DEDUP_THRESHOLD_M,
+) -> tuple[list[dict], dict[str, str]]:
+    """
+    Remove co-located duplicate station entries (same physical site, multiple OpenAQ IDs).
+
+    OpenAQ creates new location IDs when instruments are replaced or recalibrated at the
+    same physical address. Within 250m, we treat entries as the same site and keep only
+    the canonical one (lowest station_id — i.e. the oldest entry).
+
+    Returns:
+        canonical: deduplicated station list
+        alias_map: {duplicate_station_id: canonical_station_id} for all dropped IDs,
+                   so raw_readings from duplicate IDs can still be associated with the
+                   canonical station when computing spatial features.
+    """
+    # Sort ascending by station_id so the earliest (lowest) ID wins as canonical.
+    sorted_stations = sorted(stations, key=lambda s: int(s["station_id"]))
+
+    canonical: list[dict] = []
+    alias_map: dict[str, str] = {}
+
+    for s in sorted_stations:
+        sid = str(s["station_id"])
+        merged = False
+        for c in canonical:
+            d_m = haversine(
+                (s["lat"], s["lon"]), (c["lat"], c["lon"])
+            ) * 1000
+            if d_m <= threshold_m:
+                alias_map[sid] = str(c["station_id"])
+                merged = True
+                break
+        if not merged:
+            canonical.append(s)
+
+    return canonical, alias_map
+
+
+def save_alias_map(alias_map: dict, path: Path | None = None) -> None:
+    path = path or METADATA_DIR / "station_aliases.json"
+    with open(path, "w") as f:
+        json.dump(alias_map, f, indent=2)
+    print(f"Saved station alias map to {path}")
+
+
+def load_alias_map(path: Path | None = None) -> dict:
+    path = path or METADATA_DIR / "station_aliases.json"
+    with open(path) as f:
+        return json.load(f)
+
 
 def composite_distance(
     s1: dict, s2: dict, lambda_param: float = LAMBDA_DEFAULT
@@ -109,17 +167,28 @@ def summarize_index(index: dict) -> None:
 
 if __name__ == "__main__":
     stations = load_stations()
-    print(f"Building spatial neighbor index for {len(stations)} stations "
-          f"(λ={LAMBDA_DEFAULT}, d_cutoff={D_CUTOFF_KM}km)...")
+    print(f"Loaded {len(stations)} stations from elevation CSV.")
 
-    index = build_spatial_neighbor_index(stations)
+    canonical, alias_map = deduplicate_stations(stations)
+    print(f"After deduplication (threshold={DEDUP_THRESHOLD_M}m): "
+          f"{len(canonical)} canonical stations, {len(alias_map)} aliases.")
+    if alias_map:
+        print("Aliases (duplicate_id → canonical_id):")
+        for dup, canon in alias_map.items():
+            dup_name = next((s["name"] for s in stations if str(s["station_id"]) == dup), dup)
+            print(f"  {dup} ({dup_name}) → {canon}")
+    save_alias_map(alias_map)
+
+    print(f"\nBuilding spatial neighbor index for {len(canonical)} canonical stations "
+          f"(λ={LAMBDA_DEFAULT}, d_cutoff={D_CUTOFF_KM}km)...")
+    index = build_spatial_neighbor_index(canonical)
     summarize_index(index)
     save_neighbor_index(index)
 
-    # Spot-check: print top-3 neighbors for the first station
-    first_id = stations[0]["station_id"]
-    first_name = stations[0].get("name", first_id)
-    print(f"\nTop neighbors for '{first_name}':")
-    by_id = {str(s["station_id"]): s.get("name", s["station_id"]) for s in stations}
-    for nid, w in sorted(index[str(first_id)], key=lambda x: -x[1])[:5]:
+    # Spot-check: top neighbors for the first canonical station
+    first = canonical[0]
+    first_id = str(first["station_id"])
+    print(f"\nTop neighbors for '{first.get('name', first_id)}':")
+    by_id = {str(s["station_id"]): s.get("name", s["station_id"]) for s in canonical}
+    for nid, w in sorted(index[first_id], key=lambda x: -x[1])[:5]:
         print(f"  {by_id.get(nid, nid)}: weight={w:.4f}")

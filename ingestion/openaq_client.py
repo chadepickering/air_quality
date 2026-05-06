@@ -32,6 +32,7 @@ def fetch_la_stations() -> list[dict]:
         params = {
             "bbox": LA_BBOX,
             "parameters_id": PARAM_IDS["pm25"],
+            "monitor": "true",   # regulatory reference monitors only; excludes low-cost sensors
             "limit": 100,
             "page": page,
         }
@@ -192,6 +193,8 @@ def load_sensor_index(path: Path | None = None) -> dict:
 
 if __name__ == "__main__":
     import pandas as pd
+    from dotenv import load_dotenv
+    load_dotenv()
 
     Path("data/metadata").mkdir(parents=True, exist_ok=True)
 
