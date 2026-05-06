@@ -7,10 +7,11 @@ from haversine import haversine
 
 D_CUTOFF_KM = 40.0
 
-# Initial lambda for development. Δelevation is in meters, d_haversine in km.
-# Units of lambda: km² / m² — converts elevation² to km²-equivalent.
-# Tuned on held-out validation stations in Step 6; expected range 0.0001–0.001
-# (100m elevation ≈ 1–3 km horizontal at those values).
+# λ units: km²/m² — because d_haversine is in km and Δelevation is in meters.
+# At λ=0.0005: 100m elevation ≈ 2.2km horizontal, 300m ≈ 6.7km.
+# Project plan specifies 0.05–0.20 as a tuning range but that range assumes
+# dimensionless (km/km) inputs; in km²/m² units the equivalent range is ~0.00005–0.001.
+# Tuned on held-out validation stations in Step 6.
 LAMBDA_DEFAULT = 0.0005
 
 METADATA_DIR = Path("data/metadata")
