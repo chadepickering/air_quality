@@ -48,9 +48,15 @@ def initialize_database(db_path: str = DB_PATH) -> duckdb.DuckDBPyConnection:
             spatial_no2_lag1   FLOAT,
             spatial_o3_lag1    FLOAT,
             spatial_elev_diff  FLOAT,
+            split              VARCHAR,
             PRIMARY KEY (station_id, timestamp)
         )
     """)
+    # Migration: add split column if table was created before Step 4
+    try:
+        con.execute("ALTER TABLE processed_features ADD COLUMN IF NOT EXISTS split VARCHAR")
+    except Exception:
+        pass
     return con
 
 
@@ -83,7 +89,15 @@ def write_processed_features(con: duckdb.DuckDBPyConnection, df: pd.DataFrame) -
         return 0
     con.execute("""
         INSERT INTO processed_features
-        SELECT * FROM df
+        SELECT station_id, timestamp,
+               pm25, no2, o3, pm10, co,
+               hour_of_day, day_of_week, month, is_weekend,
+               pm25_roll3, pm25_roll6, pm25_roll24,
+               pm25_lag1, pm25_lag3, pm25_lag24,
+               spatial_pm25_lag1, spatial_pm25_lag3, spatial_pm25_roll6,
+               spatial_no2_lag1, spatial_o3_lag1, spatial_elev_diff,
+               split
+        FROM df
         ON CONFLICT DO NOTHING
     """)
     return len(df)
