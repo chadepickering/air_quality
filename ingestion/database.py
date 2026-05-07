@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import duckdb
@@ -105,3 +106,83 @@ def get_station_completeness(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         GROUP BY station_id, parameter
         ORDER BY station_id, parameter
     """).df()
+
+
+PM25_COMPLETENESS_THRESHOLD = 80.0
+
+
+if __name__ == "__main__":
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    from ingestion.openaq_client import fetch_measurements, load_sensor_index
+
+    sensor_index = load_sensor_index()
+    print(f"Loaded sensor index: {len(sensor_index)} sensors.")
+
+    con = initialize_database()
+    print(f"DuckDB initialised at {DB_PATH}.")
+
+    now = datetime.now(timezone.utc)
+
+    items = list(sensor_index.items())
+    total_written = 0
+    skipped = 0
+    for i, (sensor_id, meta) in enumerate(items):
+        # Use the sensor's last-known report date as date_to so stale sensors
+        # still pull their actual last year of data.
+        date_last_str = meta.get("date_last", "")
+        if date_last_str:
+            date_to = min(
+                datetime.fromisoformat(date_last_str.replace("Z", "+00:00")),
+                now,
+            )
+        else:
+            date_to = now
+        date_from = date_to - timedelta(days=365)
+
+        # Skip sensors with no data expected (last report > 3 years ago)
+        if (now - date_to).days > 3 * 365:
+            print(
+                f"  [{i+1:>3}/{len(items)}] sensor {sensor_id:>8} "
+                f"({meta['station_id']} / {meta['parameter']}): skipped (last report {date_last_str[:10]})"
+            )
+            skipped += 1
+            continue
+
+        try:
+            raw = fetch_measurements(sensor_id, date_from, date_to)
+            readings = [
+                {
+                    "station_id": meta["station_id"],
+                    "parameter":  meta["parameter"],
+                    "value":      r["value"],
+                    "unit":       meta["unit"],
+                    "timestamp":  r["timestamp"],
+                }
+                for r in raw
+            ]
+            n = write_raw_readings(con, readings)
+            total_written += n
+            print(
+                f"  [{i+1:>3}/{len(items)}] sensor {sensor_id:>8} "
+                f"({meta['station_id']} / {meta['parameter']}): {n} rows"
+            )
+        except Exception as e:
+            print(f"  [{i+1:>3}/{len(items)}] sensor {sensor_id} FAILED: {e}")
+
+    print(f"\nTotal rows written: {total_written:,} ({skipped} sensors skipped — last report >3 years ago)")
+
+    print("\n--- Completeness report ---")
+    comp = get_station_completeness(con)
+    print(comp.to_string(index=False))
+
+    pm25 = comp[comp["parameter"] == "pm25"].copy()
+    flagged = pm25[pm25["pct_valid"] < PM25_COMPLETENESS_THRESHOLD]
+    if flagged.empty:
+        print(f"\nAll stations meet the {PM25_COMPLETENESS_THRESHOLD}% PM2.5 completeness threshold.")
+    else:
+        print(f"\nStations below {PM25_COMPLETENESS_THRESHOLD}% PM2.5 completeness (flagged for exclusion):")
+        print(flagged[["station_id", "n_readings", "n_valid", "pct_valid"]].to_string(index=False))
+
+    con.close()

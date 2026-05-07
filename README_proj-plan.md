@@ -327,88 +327,77 @@ pip install haversine scipy pytest properscoring plotly folium streamlit-folium
 
 ---
 
-### Step 2 — Station Metadata, Elevation, and Spatial Index
+### Step 2 — Station Metadata, Elevation, and Spatial Index ✓
 
-**Files:** `ingestion/openaq_client.py`, `ingestion/usgs_elevation.py`, `ingestion/station_registry.py`
+**Files:** `ingestion/openaq_client.py`, `ingestion/usgs_elevation.py`, `ingestion/station_registry.py`, `ingestion/database.py`
 
-**OpenAQ station pull for LA metro:**
+**OpenAQ v3 station pull — key implementation notes:**
+
+OpenAQ v3 changed the API architecture significantly from v2. Measurements are no longer available via a general `/v3/measurements` endpoint — they are per-sensor: `GET /v3/sensors/{sensor_id}/measurements`. Location objects include a `sensors[]` array that maps sensor IDs to parameters and units. The `monitor=true` filter is required to restrict results to regulatory reference monitors (FRM/FEM); without it the bbox query returns ~480 locations including low-cost PurpleAir and school sensors.
+
 ```python
-# ingestion/openaq_client.py
-import requests
-
-BASE_URL = "https://api.openaq.org/v3"
+# ingestion/openaq_client.py — key functions
 
 def fetch_la_stations() -> list[dict]:
-    # South Coast AQMD bounding box
-    # lat: 33.5 to 34.8, lon: -118.9 to -117.0
-    params = {
-        "bbox": "-118.9,33.5,-117.0,34.8",
-        "parameters": "pm25",
-        "limit": 100
-    }
-    response = requests.get(f"{BASE_URL}/locations", params=params)
-    response.raise_for_status()
-    return response.json()["results"]
+    # monitor=true: regulatory reference monitors only (excludes PurpleAir, school sensors)
+    params = {"bbox": LA_BBOX, "parameters_id": 2, "monitor": "true", "limit": 100}
+    # paginated; returns 59 stations across South Coast AQMD network
+
+def extract_sensor_index(raw_stations: list[dict]) -> dict[str, dict]:
+    # Builds {sensor_id: {station_id, parameter, unit}} from the sensors[] array
+    # on each location object. Required because measurements are fetched per sensor,
+    # not per location+parameter as in v2.
+
+def fetch_measurements(sensor_id: str, date_from, date_to) -> list[dict]:
+    # GET /v3/sensors/{sensor_id}/measurements
+    # Timestamp field is datetimeFrom.utc (not date.utc as in v2)
+    # Unit is in parameter.units on the location object, not on the measurement record
+
+def fetch_historical_bulk(sensor_index: dict, lookback_days: int = 365) -> list[dict]:
+    # Iterates over sensor_index, fetches per-sensor, returns flat list for DuckDB
 ```
 
-**USGS elevation pull — one time only:**
+**USGS EPQS — confirmed response schema:**
+
 ```python
-# ingestion/usgs_elevation.py
-import requests
-
-def get_elevation(lat: float, lon: float) -> float:
-    url = "https://epqs.nationalmap.gov/v1/json"
-    params = {"x": lon, "y": lat, "units": "Meters"}
-    response = requests.get(url, params=params)
-    return response.json()["value"]
+# GET https://epqs.nationalmap.gov/v1/json?x={lon}&y={lat}&units=Meters
+# Response: {"value": "255.867050171", "location": {...}, "rasterId": ..., "resolution": ...}
+# value is a string — convert with float(). Sentinel for water/invalid: "-1000000".
 ```
 
-**Spatial index and distance computation:**
+**Composite distance metric and λ units:**
+
+```
+d = sqrt(d_haversine_km² + λ · Δelevation_m²)
+```
+
+d_haversine is in km (haversine package default); Δelevation is in meters. λ therefore has units km²/m². The project plan originally stated λ=0.1 with an expected range of 0.05–0.20, but those values assume dimensionless (km/km) inputs. With elevation in meters, λ=0.1 makes a 100m elevation difference equivalent to ~31.6km of horizontal distance, which would exclude most cross-elevation neighbors in the LA basin. The correct development default is **λ=0.0005 km²/m²**, which gives 100m elevation ≈ 2.2km and 300m ≈ 6.7km — physically appropriate for the basin. Equivalent tuning range in km²/m² units: ~0.00005–0.001. λ is tuned on held-out stations in Step 6.
+
+**Station deduplication:**
+
+OpenAQ creates new location IDs when instruments are replaced or recalibrated at the same physical site. Analysis of coordinate distances within same-name groups showed a clean gap between 161m (clearly same site, GPS precision difference) and 359m (likely physical relocation). Threshold set at **250m**. Co-located duplicates are collapsed to the lowest station_id (earliest entry) as canonical. An alias map is saved so raw_readings from any duplicate ID can be associated with its canonical station during feature computation.
+
 ```python
 # ingestion/station_registry.py
-from haversine import haversine
-import numpy as np
 
-D_CUTOFF_KM = 40.0
-
-def composite_distance(s1: dict, s2: dict, lambda_param: float) -> float:
-    d_haversine = haversine((s1["lat"], s1["lon"]), (s2["lat"], s2["lon"]))
-    delta_elev = abs(s1["elevation_m"] - s2["elevation_m"])
-    return np.sqrt(d_haversine**2 + lambda_param * delta_elev**2)
-
-def epanechnikov_weight(d: float, d_cutoff: float = D_CUTOFF_KM) -> float:
-    if d >= d_cutoff:
-        return 0.0
-    return max(0.0, 1 - (d / d_cutoff)**2)
-
-def build_spatial_neighbor_index(
-    stations: list[dict],
-    lambda_param: float,
-    d_cutoff: float = D_CUTOFF_KM
-) -> dict[str, list[tuple[str, float]]]:
-    index = {}
-    for s in stations:
-        neighbors = []
-        for other in stations:
-            if other["id"] == s["id"]:
-                continue
-            d = composite_distance(s, other, lambda_param)
-            w = epanechnikov_weight(d, d_cutoff)
-            if w > 0:
-                neighbors.append((other["id"], w))
-        total = sum(w for _, w in neighbors)
-        index[s["id"]] = [(sid, w/total) for sid, w in neighbors]
-    return index
+def deduplicate_stations(stations, threshold_m=250.0) -> tuple[list[dict], dict[str, str]]:
+    # Returns (canonical_station_list, {duplicate_id: canonical_id})
+    # Sort by station_id ascending so lowest (earliest) ID wins as canonical
 ```
 
-**λ tuning:** Use λ=0.1 as initial value during development. Tune on held-out stations after LSTM baseline is established (Step 6).
+**Output files:**
+- `data/metadata/stations.csv` — 59 raw station records
+- `data/metadata/station_elevations.csv` — 59 stations with elevation_m
+- `data/metadata/sensor_index.json` — {sensor_id: {station_id, parameter, unit}}
+- `data/metadata/station_aliases.json` — {duplicate_id: canonical_id}
+- `data/metadata/neighbor_index.json` — {canonical_station_id: [(neighbor_id, weight)]}
 
 **Acceptance criteria:**
-- [ ] LA metro stations pulled and stored to `data/metadata/stations.csv`
-- [ ] Elevation enriched and stored to `data/metadata/station_elevations.csv`
-- [ ] Spatial neighbor index computed for all stations at λ=0.1
-- [ ] Visual inspection of neighbor assignments makes geographic sense
-- [ ] At least 20 stations with complete PM2.5 coverage identified
+- [x] LA metro stations pulled and stored to `data/metadata/stations.csv` (59 regulatory reference monitors)
+- [x] Elevation enriched and stored to `data/metadata/station_elevations.csv` (all 59, no missing values)
+- [x] Spatial neighbor index computed for 41 canonical stations after deduplication (λ=0.0005, d_cutoff=40km)
+- [x] Visual inspection of neighbor assignments makes geographic sense (South Long Beach → Long Beach Signal Hill, 710 Near Road, EBAM-11, Anaheim, EBAM-14 ✓)
+- [ ] At least 20 stations with complete PM2.5 coverage identified (assessed in Step 3 after historical pull)
 
 ---
 
@@ -456,7 +445,7 @@ def initialize_database(db_path: str = "data/processed/aq.duckdb"):
 - [ ] NO2, O3, PM10 covariates pulled for same stations and period
 - [ ] Raw data stored in DuckDB with quality flags
 - [ ] Data completeness report: % valid readings per station per parameter
-- [ ] Stations with <70% PM2.5 completeness flagged for exclusion
+- [ ] Stations with <80% PM2.5 completeness flagged for exclusion
 
 ---
 

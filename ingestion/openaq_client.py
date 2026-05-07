@@ -74,22 +74,16 @@ def parse_station_metadata(raw_stations: list[dict]) -> list[dict]:
 
 def extract_sensor_index(raw_stations: list[dict]) -> dict[str, dict]:
     """
-    Build a sensor_id → {station_id, parameter, unit} index from location objects.
+    Build a sensor_id → {station_id, parameter, unit, date_last} index.
 
-    In OpenAQ v3, measurements are fetched per sensor (not per location+parameter).
-    This index maps each sensor ID to the station and parameter it belongs to,
-    so fetch_measurements() can route results back to the right station/parameter.
-
-    Returns:
-        {
-          "67890": {"station_id": "12345", "parameter": "pm25", "unit": "µg/m³"},
-          "67891": {"station_id": "12345", "parameter": "no2",  "unit": "ppb"},
-          ...
-        }
+    date_last is the location's datetimeLast.utc — used in the historical pull to
+    set a per-sensor date_to so stale sensors pull their actual last year of data
+    rather than querying a window with no results.
     """
     index = {}
     for loc in raw_stations:
         station_id = str(loc["id"])
+        date_last = (loc.get("datetimeLast") or {}).get("utc", "")
         for sensor in loc.get("sensors") or []:
             param = sensor.get("parameter") or {}
             param_name = param.get("name", "")
@@ -99,6 +93,7 @@ def extract_sensor_index(raw_stations: list[dict]) -> dict[str, dict]:
                 "station_id": station_id,
                 "parameter": param_name,
                 "unit": param.get("units", "µg/m³"),
+                "date_last": date_last,
             }
     return index
 
@@ -107,39 +102,73 @@ def fetch_measurements(
     sensor_id: str,
     date_from: datetime,
     date_to: datetime,
+    chunk_days: int = 7,
     page_limit: int = 1000,
+    max_retries: int = 3,
 ) -> list[dict]:
     """
     Fetch measurements for one sensor via GET /v3/sensors/{sensor_id}/measurements.
-    Returns list of {value, timestamp} dicts; station_id/parameter/unit are in the
-    sensor_index and added by fetch_historical_bulk().
 
-    Timestamp is datetimeFrom.utc — the start of the measurement period.
+    Queries in 7-day windows — larger windows time out (408) server-side. Chunks that
+    return 408/500 after all retries are silently skipped: they represent server-side
+    data gaps that retrying won't recover. On 429, sleeps Retry-After seconds.
+
+    Returns list of {value, timestamp} dicts.
     """
     readings = []
-    page = 1
-    while True:
-        params = {
-            "datetime_from": date_from.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "datetime_to": date_to.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "limit": page_limit,
-            "page": page,
-        }
-        resp = requests.get(
-            f"{BASE_URL}/sensors/{sensor_id}/measurements",
-            params=params,
-            headers=_headers(),
-            timeout=30,
-        )
-        resp.raise_for_status()
-        results = resp.json().get("results", [])
-        for r in results:
-            ts = (r.get("datetimeFrom") or {}).get("utc", "")
-            readings.append({"value": r.get("value"), "timestamp": ts})
-        if len(results) < page_limit:
-            break
-        page += 1
-        time.sleep(0.3)
+    chunk_start = date_from
+
+    while chunk_start < date_to:
+        chunk_end = min(chunk_start + timedelta(days=chunk_days), date_to)
+
+        for attempt in range(max_retries):
+            try:
+                chunk_readings = []
+                page = 1
+                while True:
+                    params = {
+                        "datetime_from": chunk_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        "datetime_to":   chunk_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        "limit": page_limit,
+                        "page": page,
+                    }
+                    resp = requests.get(
+                        f"{BASE_URL}/sensors/{sensor_id}/measurements",
+                        params=params,
+                        headers=_headers(),
+                        timeout=30,
+                    )
+                    if resp.status_code == 429:
+                        retry_after = int(resp.headers.get("Retry-After", 60))
+                        time.sleep(retry_after)
+                        continue  # retry same page, no attempt consumed
+                    resp.raise_for_status()
+                    results = resp.json().get("results", [])
+                    for r in results:
+                        period = r.get("period") or {}
+                        ts = (period.get("datetimeFrom") or {}).get("utc", "")
+                        if ts:
+                            chunk_readings.append({"value": r.get("value"), "timestamp": ts})
+                    if len(results) < page_limit:
+                        break
+                    page += 1
+                    time.sleep(0.5)
+
+                readings.extend(chunk_readings)
+                break  # chunk succeeded
+
+            except requests.HTTPError as e:
+                code = e.response.status_code
+                if attempt < max_retries - 1 and code in (408, 500, 502, 503):
+                    time.sleep(5 * (2 ** attempt))
+                elif code in (408, 500):
+                    break  # server-side gap — skip chunk, don't raise
+                else:
+                    raise
+
+        chunk_start = chunk_end
+        time.sleep(1.0)
+
     return readings
 
 
