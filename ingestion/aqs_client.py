@@ -280,7 +280,7 @@ if __name__ == "__main__":
 
     # --- Historical data pull ---
     date_to   = date.today()
-    date_from = date_to - timedelta(days=365)
+    date_from = date(2021, 3, 1)
     print(f"\nFetching hourly sample data {date_from} → {date_to} "
           f"for {len(station_ids)} stations across 5 parameters...")
 
