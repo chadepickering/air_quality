@@ -11,7 +11,7 @@ An end-to-end real-time environmental data pipeline that ingests streaming air q
 ## Architecture
 
 ```
-OpenAQ REST API (LA metro monitoring stations)
+EPA AQS API (LA metro monitoring stations)
         ↓
 Ingestion Pipeline (Python + requests)
 USGS Elevation API (one-time station metadata pull)
@@ -71,16 +71,18 @@ Kafka Topic: processed_air_quality
 
 | Property | Detail |
 |---|---|
-| Primary source | OpenAQ REST API v3 |
-| Endpoint | `https://api.openaq.org/v3/` |
-| Development scope | LA metro area (South Coast AQMD network, 30+ stations) |
+| Primary source | EPA Air Quality System (AQS) REST API |
+| Endpoint | `https://aqs.epa.gov/data/api/` |
+| Development scope | LA metro area (South Coast AQMD network, 40–70 stations) |
 | Production extension | State of California (CARB network, 250+ stations) |
-| Access | No credentials required |
-| Format | JSON, paginated |
+| Access | Free registration — email + API key |
+| Format | JSON |
 | Temporal resolution | Hourly |
-| Primary target | PM2.5 (μg/m³) |
-| Covariates | NO2, O3, PM10, CO |
+| Primary target | PM2.5 (μg/m³, AQS parameter code 88101) |
+| Covariates | NO2 (42602), O3 (44201), PM10 (81102), CO (42101) |
 | Elevation data | USGS National Elevation Dataset — one-time point query per station |
+
+**Why AQS over OpenAQ:** AQS is the primary source — SCAQMD stations report directly to EPA AQS; OpenAQ ingests it downstream. AQS's `hourData/byCounty` endpoint returns all stations in a county for a given parameter and date range in a single request, making bulk historical pulls fast (~100 requests for a full year across 5 parameters) and reliable. AQS site IDs are stable (instruments at a given site keep the same ID), eliminating the station deduplication complexity that plagued the OpenAQ-based approach.
 
 **Why LA metro:** South Coast AQMD operates one of the densest air quality monitoring networks in the world. The LA basin's geographic and meteorological complexity — ocean breeze, temperature inversions, wildfire smoke events, traffic corridors — creates rich temporal patterns that reward sophisticated modeling over simpler baselines.
 
@@ -88,8 +90,8 @@ Kafka Topic: processed_air_quality
 
 | Tier | Pattern | When to use |
 |---|---|---|
-| Development | OpenAQ API → local Kafka → local models | LA metro, portfolio demonstration |
-| Staging | OpenAQ API → GCS → Kafka → Spark cluster | California statewide, 250+ stations |
+| Development | AQS API → local Kafka → local models | LA metro, portfolio demonstration |
+| Staging | AQS API → GCS → Kafka → Spark cluster | California statewide, 250+ stations |
 | Production | Streaming API → GCS → Spark/BigQuery | National or global deployment |
 
 ---
@@ -197,7 +199,8 @@ air_quality/
 ├── data/
 │   ├── metadata/
 │   │   ├── stations.csv
-│   │   └── station_elevations.csv
+│   │   ├── station_elevations.csv
+│   │   └── neighbor_index.json
 │   ├── processed/                  # gitignored
 │   └── raw/                        # gitignored
 ├── evaluation/
@@ -205,10 +208,9 @@ air_quality/
 │   ├── spatial_catchment_viz.py
 │   └── threshold_sensitivity.py
 ├── ingestion/
+│   ├── aqs_client.py
 │   ├── database.py
-│   ├── openaq_client.py
-│   ├── station_registry.py
-│   └── usgs_elevation.py
+│   └── station_registry.py
 ├── models/
 │   ├── deepar/
 │   │   ├── evaluate.py
@@ -260,7 +262,7 @@ air_quality/
 
 | Component | Tool | Cost |
 |---|---|---|
-| Air quality data | OpenAQ REST API v3 | Free |
+| Air quality data | EPA AQS REST API | Free (registration required) |
 | Elevation data | USGS National Elevation Dataset | Free |
 | Local storage | DuckDB | Free |
 | Message broker | Apache Kafka (Docker) | Free |
@@ -327,43 +329,53 @@ pip install haversine scipy pytest properscoring plotly folium streamlit-folium
 
 ---
 
-### Step 2 — Station Metadata, Elevation, and Spatial Index ✓
+### Step 2 — Station Metadata, Elevation, and Spatial Index
 
-**Files:** `ingestion/openaq_client.py`, `ingestion/usgs_elevation.py`, `ingestion/station_registry.py`, `ingestion/database.py`
+**Files:** `ingestion/aqs_client.py`, `ingestion/station_registry.py`
 
-**OpenAQ v3 station pull — key implementation notes:**
+Note: `usgs_elevation.py` is retired. AQS `monitors/byCounty` provides elevation in meters directly, verified complete (0 missing values) across all 5 SCAQMD counties. Elevation is included in `stations.csv`; no separate elevation file or USGS step needed.
 
-OpenAQ v3 changed the API architecture significantly from v2. Measurements are no longer available via a general `/v3/measurements` endpoint — they are per-sensor: `GET /v3/sensors/{sensor_id}/measurements`. Location objects include a `sensors[]` array that maps sensor IDs to parameters and units. The `monitor=true` filter is required to restrict results to regulatory reference monitors (FRM/FEM); without it the bbox query returns ~480 locations including low-cost PurpleAir and school sensors.
+**Data source: EPA AQS REST API**
 
-```python
-# ingestion/openaq_client.py — key functions
+AQS is the authoritative source for all US regulatory air quality monitoring data. SCAQMD reports directly to AQS; OpenAQ was a downstream aggregator and was abandoned due to unreliable bulk measurement APIs. AQS site IDs are stable — instruments at a given site keep the same ID when replaced or recalibrated, eliminating the need for deduplication entirely.
 
-def fetch_la_stations() -> list[dict]:
-    # monitor=true: regulatory reference monitors only (excludes PurpleAir, school sensors)
-    params = {"bbox": LA_BBOX, "parameters_id": 2, "monitor": "true", "limit": 100}
-    # paginated; returns 59 stations across South Coast AQMD network
-
-def extract_sensor_index(raw_stations: list[dict]) -> dict[str, dict]:
-    # Builds {sensor_id: {station_id, parameter, unit}} from the sensors[] array
-    # on each location object. Required because measurements are fetched per sensor,
-    # not per location+parameter as in v2.
-
-def fetch_measurements(sensor_id: str, date_from, date_to) -> list[dict]:
-    # GET /v3/sensors/{sensor_id}/measurements
-    # Timestamp field is datetimeFrom.utc (not date.utc as in v2)
-    # Unit is in parameter.units on the location object, not on the measurement record
-
-def fetch_historical_bulk(sensor_index: dict, lookback_days: int = 365) -> list[dict]:
-    # Iterates over sensor_index, fetches per-sensor, returns flat list for DuckDB
-```
-
-**USGS EPQS — confirmed response schema:**
+**AQS station discovery:**
 
 ```python
-# GET https://epqs.nationalmap.gov/v1/json?x={lon}&y={lat}&units=Meters
-# Response: {"value": "255.867050171", "location": {...}, "rasterId": ..., "resolution": ...}
-# value is a string — convert with float(). Sentinel for water/invalid: "-1000000".
+# ingestion/aqs_client.py — station discovery
+
+BASE_URL = "https://aqs.epa.gov/data/api"
+
+# Five SCAQMD counties queried and filtered to LA metro bbox (-118.9,33.5,-117.0,34.8)
+SCAQMD_COUNTIES = [
+    {"state": "06", "county": "037"},  # Los Angeles
+    {"state": "06", "county": "059"},  # Orange
+    {"state": "06", "county": "065"},  # Riverside
+    {"state": "06", "county": "071"},  # San Bernardino
+    {"state": "06", "county": "111"},  # Ventura
+]
+
+AQS_PARAMETERS = {
+    "pm25": {"code": "88101", "unit": "µg/m³"},
+    "no2":  {"code": "42602", "unit": "ppb"},
+    "o3":   {"code": "44201", "unit": "ppm"},
+    "pm10": {"code": "81102", "unit": "µg/m³"},
+    "co":   {"code": "42101", "unit": "ppm"},
+}
+
+def fetch_monitors_by_county(state: str, county: str, param_code: str) -> list[dict]:
+    # GET /monitors/byCounty — full station metadata: lat, lon, elevation, name, close_date
+    # station_id = f"{state_code}-{county_code}-{site_number}" e.g. "06-037-0016"
+
+def build_station_list() -> pd.DataFrame:
+    # Query PM2.5 monitors across all five counties, deduplicate by site_id,
+    # filter to bbox, exclude closed monitors (close_date is not None).
+    # Output columns: station_id, name, lat, lon, elevation_m, county_code, state_code
 ```
+
+**AQS parameter code 88101 (PM2.5):** Covers both 24-hour FRM (filter-based) and continuous FEM (BAM, TEOM-FDMS) instruments. During data pull, rows with `sample_duration != '1 HOUR'` are filtered out — this removes FRM filter readings and retains only continuous hourly instruments. FRM stations will also naturally fail the 80% completeness threshold even without explicit filtering.
+
+**AQS data pull endpoint:** `sampleData/byCounty` (not `hourData/byCounty`, which does not exist in the v1 API). Returns raw sample data including `sample_duration`, `qualifier`, and `poc` fields.
 
 **Composite distance metric and λ units:**
 
@@ -371,81 +383,85 @@ def fetch_historical_bulk(sensor_index: dict, lookback_days: int = 365) -> list[
 d = sqrt(d_haversine_km² + λ · Δelevation_m²)
 ```
 
-d_haversine is in km (haversine package default); Δelevation is in meters. λ therefore has units km²/m². The project plan originally stated λ=0.1 with an expected range of 0.05–0.20, but those values assume dimensionless (km/km) inputs. With elevation in meters, λ=0.1 makes a 100m elevation difference equivalent to ~31.6km of horizontal distance, which would exclude most cross-elevation neighbors in the LA basin. The correct development default is **λ=0.0005 km²/m²**, which gives 100m elevation ≈ 2.2km and 300m ≈ 6.7km — physically appropriate for the basin. Equivalent tuning range in km²/m² units: ~0.00005–0.001. λ is tuned on held-out stations in Step 6.
+d_haversine is in km (haversine package default); Δelevation is in meters. λ has units km²/m². Development default **λ=0.0005 km²/m²** gives 100m elevation ≈ 2.2km and 300m ≈ 6.7km — physically appropriate for the LA basin. Equivalent tuning range: ~0.00005–0.001 km²/m². λ is tuned on held-out stations in Step 6.
 
-**Station deduplication:**
-
-OpenAQ creates new location IDs when instruments are replaced or recalibrated at the same physical site. Analysis of coordinate distances within same-name groups showed a clean gap between 161m (clearly same site, GPS precision difference) and 359m (likely physical relocation). Threshold set at **250m**. Co-located duplicates are collapsed to the lowest station_id (earliest entry) as canonical. An alias map is saved so raw_readings from any duplicate ID can be associated with its canonical station during feature computation.
-
-```python
-# ingestion/station_registry.py
-
-def deduplicate_stations(stations, threshold_m=250.0) -> tuple[list[dict], dict[str, str]]:
-    # Returns (canonical_station_list, {duplicate_id: canonical_id})
-    # Sort by station_id ascending so lowest (earliest) ID wins as canonical
-```
+**No station deduplication:** AQS site IDs do not change on instrument replacement. `station_registry.py` contains only spatial functions — no alias map, no dedup machinery.
 
 **Output files:**
-- `data/metadata/stations.csv` — 59 raw station records
-- `data/metadata/station_elevations.csv` — 59 stations with elevation_m
-- `data/metadata/sensor_index.json` — {sensor_id: {station_id, parameter, unit}}
-- `data/metadata/station_aliases.json` — {duplicate_id: canonical_id}
-- `data/metadata/neighbor_index.json` — {canonical_station_id: [(neighbor_id, weight)]}
+- `data/metadata/stations.csv` — AQS site IDs as primary key; columns: `station_id`, `name`, `lat`, `lon`, `elevation_m`, `county_code`, `state_code`
+- `data/metadata/neighbor_index.json` — `{station_id: [(neighbor_id, normalized_weight), ...]}`
 
 **Acceptance criteria:**
-- [x] LA metro stations pulled and stored to `data/metadata/stations.csv` (59 regulatory reference monitors)
-- [x] Elevation enriched and stored to `data/metadata/station_elevations.csv` (all 59, no missing values)
-- [x] Spatial neighbor index computed for 41 canonical stations after deduplication (λ=0.0005, d_cutoff=40km)
-- [x] Visual inspection of neighbor assignments makes geographic sense (South Long Beach → Long Beach Signal Hill, 710 Near Road, EBAM-11, Anaheim, EBAM-14 ✓)
+- [ ] LA metro stations pulled and stored to `data/metadata/stations.csv` (expecting 30–50 active continuous PM2.5 monitors after bbox and close_date filter)
+- [ ] `elevation_m` populated from AQS for all stations (no USGS call needed)
+- [ ] Spatial neighbor index computed (λ=0.0005, d_cutoff=40km)
+- [ ] Visual inspection of neighbor assignments makes geographic sense
 - [ ] At least 20 stations with complete PM2.5 coverage identified (assessed in Step 3 after historical pull)
 
 ---
 
 ### Step 3 — Historical Data Pull and DuckDB Storage
 
-**Files:** `ingestion/database.py`, `ingestion/openaq_client.py`
+**Files:** `ingestion/aqs_client.py`, `ingestion/database.py`
 
-**DuckDB schema:**
+**Pull strategy — AQS county-level batch queries:**
+
 ```python
-def initialize_database(db_path: str = "data/processed/aq.duckdb"):
-    con = duckdb.connect(db_path)
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS raw_readings (
-            station_id VARCHAR,
-            parameter VARCHAR,
-            value FLOAT,
-            unit VARCHAR,
-            timestamp TIMESTAMP,
-            quality_flag INTEGER,    -- 0=valid, 1=suspect, 2=invalid
-            ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (station_id, parameter, timestamp)
-        )
-    """)
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS processed_features (
-            station_id VARCHAR,
-            timestamp TIMESTAMP,
-            pm25 FLOAT,
-            no2 FLOAT, o3 FLOAT, pm10 FLOAT, co FLOAT,
-            hour_of_day INTEGER, day_of_week INTEGER,
-            month INTEGER, is_weekend BOOLEAN,
-            pm25_roll3 FLOAT, pm25_roll6 FLOAT, pm25_roll24 FLOAT,
-            pm25_lag1 FLOAT, pm25_lag3 FLOAT, pm25_lag24 FLOAT,
-            spatial_pm25_lag1 FLOAT, spatial_pm25_lag3 FLOAT,
-            spatial_pm25_roll6 FLOAT, spatial_no2_lag1 FLOAT,
-            spatial_o3_lag1 FLOAT, spatial_elev_diff FLOAT,
-            PRIMARY KEY (station_id, timestamp)
-        )
-    """)
-    return con
+# ingestion/aqs_client.py — historical pull
+
+def fetch_samples_by_county(
+    param_code: str, state: str, county: str,
+    date_from: date, date_to: date,
+) -> list[dict]:
+    # GET /sampleData/byCounty
+    # Returns all stations in county for the given parameter and date range.
+    # One request covers every station in the county — no per-sensor iteration.
+    # Rows are filtered to sample_duration == '1 HOUR' to exclude FRM 24-hr readings.
+
+def fetch_historical_all(
+    station_ids: set[str],
+    date_from: date,
+    date_to: date,
+    chunk_days: int = 90,
+) -> list[dict]:
+    # Iterate: 5 counties × 5 parameters × quarterly chunks ≈ 100 requests total.
+    # Filter results to bbox station_ids (stations outside our area are dropped).
+    # Returns flat list of {station_id, parameter, value, unit, timestamp, quality_flag}.
+```
+
+**AQS response field mapping:**
+
+| AQS field | Maps to |
+|---|---|
+| `state_code` + `county_code` + `site_num` | `station_id` (e.g., `"06-037-0016"`) |
+| `sample_measurement` | `value` |
+| `units_of_measure` | `unit` |
+| `date_gmt` + `time_gmt` | `timestamp` (UTC; `time_gmt` is end-of-hour convention) |
+| `qualifier` (blank) | `quality_flag = 0` (valid) |
+| `qualifier` (non-blank) | `quality_flag = 1` (suspect) |
+
+**POC handling:** AQS Parameter Occurrence Code identifies individual instruments at a site. Where multiple instruments measure the same parameter at the same site and hour, keep the reading from the lowest POC that has a non-null value.
+
+**DuckDB schema (unchanged):**
+```python
+raw_readings:       station_id, parameter, value, unit, timestamp (UTC),
+                    quality_flag (0=valid, 1=suspect, 2=invalid),
+                    ingested_at — PRIMARY KEY (station_id, parameter, timestamp)
+
+processed_features: station_id, timestamp, pm25, no2, o3, pm10, co,
+                    hour_of_day, day_of_week, month, is_weekend,
+                    pm25_roll3/6/24, pm25_lag1/3/24,
+                    spatial_pm25_lag1/3, spatial_pm25_roll6,
+                    spatial_no2_lag1, spatial_o3_lag1, spatial_elev_diff
+                    — PRIMARY KEY (station_id, timestamp)
 ```
 
 **Acceptance criteria:**
 - [ ] At least 12 months of hourly PM2.5 data pulled for all LA metro stations
-- [ ] NO2, O3, PM10 covariates pulled for same stations and period
+- [ ] NO2, O3, PM10, CO covariates pulled for same stations and period
 - [ ] Raw data stored in DuckDB with quality flags
 - [ ] Data completeness report: % valid readings per station per parameter
-- [ ] Stations with <80% PM2.5 completeness flagged for exclusion
+- [ ] At least 20 stations with ≥80% PM2.5 completeness identified
 
 ---
 
@@ -707,19 +723,20 @@ Following the UCI drift monitoring pattern — split test period into 4 temporal
 
 ## Key Design Decisions
 
-1. **Epanechnikov kernel over fixed nearest-N** — variable station density in LA metro means fixed-N produces inconsistent spatial context; kernel weighting with cutoff is density-invariant and architecturally clean
-2. **λ tuned on validation set** — avoids arbitrary assumption about elevation-distance equivalence; documents regional specificity and production generalization strategy
-3. **StudentT output for DeepAR** — PM2.5 is right-skewed with heavy tails from wildfire events; StudentT produces better-calibrated extreme event prediction intervals than Gaussian
-4. **Precision-weighted risk score** — inverse-variance weighting gives more influence to high-confidence near-term forecasts; statistically principled and directly analogous to inverse-variance meta-analysis
-5. **Dual alert tiers** — Advisory and Warning tiers map to distinct public health actions; single threshold would conflate sensitive-group risk with general population risk
-6. **Separate Grafana and Streamlit** — Grafana for operational real-time monitoring; Streamlit for ML performance and explainability; mirrors production MLOps architecture
+1. **EPA AQS over OpenAQ for data collection** — AQS is the primary regulatory data source (SCAQMD reports directly to AQS; OpenAQ ingests downstream). AQS's county-level batch endpoint (`hourData/byCounty`) returns all stations in a county in a single request, making bulk historical pulls fast (~100 requests for 1 year) and reliable. AQS site IDs are stable on instrument replacement, eliminating deduplication entirely. Requires free registration (`AQS_EMAIL` + `AQS_KEY` in `.env`).
+2. **Epanechnikov kernel over fixed nearest-N** — variable station density in LA metro means fixed-N produces inconsistent spatial context; kernel weighting with cutoff is density-invariant and architecturally clean
+3. **λ tuned on validation set** — avoids arbitrary assumption about elevation-distance equivalence; documents regional specificity and production generalization strategy
+4. **StudentT output for DeepAR** — PM2.5 is right-skewed with heavy tails from wildfire events; StudentT produces better-calibrated extreme event prediction intervals than Gaussian
+5. **Precision-weighted risk score** — inverse-variance weighting gives more influence to high-confidence near-term forecasts; statistically principled and directly analogous to inverse-variance meta-analysis
+6. **Dual alert tiers** — Advisory and Warning tiers map to distinct public health actions; single threshold would conflate sensitive-group risk with general population risk
+7. **Separate Grafana and Streamlit** — Grafana for operational real-time monitoring; Streamlit for ML performance and explainability; mirrors production MLOps architecture
 
 ---
 
 ## Implementation Order Summary
 
 1. Repository scaffold and Docker Compose skeleton ✓
-2. Station metadata, USGS elevation, spatial index
+2. Station metadata, USGS elevation, spatial index (AQS pivot — in progress)
 3. Historical data pull and DuckDB storage
 4. Sensor validation, imputation, feature engineering
 5. Kafka producer and PySpark streaming consumer

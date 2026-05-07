@@ -56,7 +56,7 @@ def initialize_database(db_path: str = DB_PATH) -> duckdb.DuckDBPyConnection:
 
 def write_raw_readings(con: duckdb.DuckDBPyConnection, readings: list[dict]) -> int:
     """
-    Insert raw sensor readings, skipping duplicates (INSERT OR IGNORE).
+    Insert raw sensor readings, skipping duplicates on PRIMARY KEY conflict.
     quality_flag: 0=valid, 1=suspect, 2=invalid
 
     Returns number of rows in the input batch.
@@ -66,23 +66,25 @@ def write_raw_readings(con: duckdb.DuckDBPyConnection, readings: list[dict]) -> 
     df = pd.DataFrame(readings)
     if "quality_flag" not in df.columns:
         df["quality_flag"] = 0
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).dt.tz_convert(None)
     con.execute("""
-        INSERT OR IGNORE INTO raw_readings
+        INSERT INTO raw_readings
             (station_id, parameter, value, unit, timestamp, quality_flag)
         SELECT station_id, parameter, value, unit, timestamp, quality_flag
         FROM df
+        ON CONFLICT DO NOTHING
     """)
     return len(df)
 
 
 def write_processed_features(con: duckdb.DuckDBPyConnection, df: pd.DataFrame) -> int:
-    """Upsert processed feature rows, skipping duplicates. Returns row count."""
+    """Insert processed feature rows, skipping duplicates. Returns row count."""
     if df.empty:
         return 0
     con.execute("""
-        INSERT OR IGNORE INTO processed_features
+        INSERT INTO processed_features
         SELECT * FROM df
+        ON CONFLICT DO NOTHING
     """)
     return len(df)
 
