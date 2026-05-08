@@ -12,6 +12,8 @@ or downstream visualizations.
 2. [DuckDB — `processed_features` table](#2-duckdb--processed_features-table)
 3. [CSV — `data/metadata/stations.csv`](#3-csv--datametadatastationscsv)
 4. [JSON — `data/metadata/neighbor_index.json`](#4-json--datametadataneighbor_indexjson)
+5. [Kafka — `raw_air_quality` topic](#5-kafka--raw_air_quality-topic)
+6. [Kafka — `processed_air_quality` topic](#6-kafka--processed_air_quality-topic)
 
 ---
 
@@ -316,3 +318,69 @@ This is expected behavior, not a data pipeline failure.
 
 Each inner list is `[neighbor_station_id, normalized_weight]`.
 Weights within each station's list sum to 1.0 (verified by `tests/test_spatial_weights.py::test_neighbor_weights_sum_to_one_in_index`).
+
+---
+
+## 5. Kafka — `raw_air_quality` topic
+
+**Populated by:** `streaming/producer.py`  
+**Consumed by:** `streaming/consumer.py`  
+**Partitions:** 19 (key = `station_id` UTF-8 bytes — all readings for a station land in the same partition)  
+**Retention:** 7 days  
+**Schema defined in:** `streaming/schemas.py` — `RawReading` dataclass (Python) / `raw_reading_spark_schema()` (PySpark)
+
+Each message is one hourly observation for one parameter at one station — the streaming equivalent of a single `raw_readings` row.
+
+**Message format:** JSON, UTF-8 encoded.
+
+| Field | Type | Description |
+|---|---|---|
+| `station_id` | string | AQS site ID e.g. `"06-037-1103"` |
+| `parameter` | string | `pm25` \| `no2` \| `o3` \| `pm10` \| `co` |
+| `value` | float \| null | Measured concentration in native AQS units; `null` if measurement was missing |
+| `unit` | string | `"µg/m³"` (pm25/pm10), `"ppb"` (no2), `"ppm"` (o3/co) |
+| `timestamp` | string | ISO 8601 UTC — `"2024-01-15T14:00:00Z"` (start of 1-hour averaging period) |
+| `quality_flag` | int | `0`=valid · `1`=suspect · `2`=invalid (matches `raw_readings.quality_flag`) |
+
+**NaN handling:** Python `float('nan')` is not valid JSON. `serialize()` in `schemas.py` replaces all NaN/Inf values with JSON `null` before encoding. The consumer reads these as `null` in PySpark `DoubleType` columns.
+
+---
+
+## 6. Kafka — `processed_air_quality` topic
+
+**Populated by:** `streaming/consumer.py`  
+**Consumed by:** forecasting layer (Steps 6–8), InfluxDB writer, alert system  
+**Partitions:** 19 (same key scheme as `raw_air_quality`)  
+**Retention:** 7 days  
+**Schema defined in:** `streaming/schemas.py` — `ProcessedFeature` dataclass (Python) / `processed_feature_spark_schema()` (PySpark)
+
+Each message is one fully-engineered feature vector for one station-hour — the streaming equivalent of a single `processed_features` row. Fields exactly mirror the `processed_features` DuckDB table (Section 2).
+
+**Message format:** JSON, UTF-8 encoded. All 24 fields always present; measurement and feature fields are `null` (not omitted) when unavailable.
+
+| Field | Type | Nullable | Description |
+|---|---|---|---|
+| `station_id` | string | No | AQS site ID |
+| `timestamp` | string | No | ISO 8601 UTC |
+| `pm25` | float \| null | Yes | Post-imputation PM2.5 µg/m³; null = extended outage >24 hr |
+| `no2` | float \| null | Yes | Post-imputation NO2 ppb |
+| `o3` | float \| null | Yes | Post-imputation O3 ppm |
+| `pm10` | float \| null | Yes | Post-imputation PM10 µg/m³ |
+| `co` | float \| null | Yes | Post-imputation CO ppm |
+| `hour_of_day` | int | No | 0–23 |
+| `day_of_week` | int | No | 0=Monday … 6=Sunday |
+| `month` | int | No | 1–12 |
+| `is_weekend` | bool | No | `true` if day_of_week ≥ 5 |
+| `pm25_roll3` | float \| null | Yes | PM2.5 3-hour rolling mean |
+| `pm25_roll6` | float \| null | Yes | PM2.5 6-hour rolling mean |
+| `pm25_roll24` | float \| null | Yes | PM2.5 24-hour rolling mean |
+| `pm25_lag1` | float \| null | Yes | PM2.5 1-hour lag |
+| `pm25_lag3` | float \| null | Yes | PM2.5 3-hour lag |
+| `pm25_lag24` | float \| null | Yes | PM2.5 24-hour lag |
+| `spatial_pm25_lag1` | float \| null | Yes | Kernel-weighted neighbor PM2.5 at t−1 |
+| `spatial_pm25_lag3` | float \| null | Yes | Kernel-weighted neighbor PM2.5 at t−3 |
+| `spatial_pm25_roll6` | float \| null | Yes | Kernel-weighted neighbor PM2.5 6-hr rolling mean |
+| `spatial_no2_lag1` | float \| null | Yes | Kernel-weighted neighbor NO2 at t−1 |
+| `spatial_o3_lag1` | float \| null | Yes | Kernel-weighted neighbor O3 at t−1 |
+| `spatial_elev_diff` | float \| null | Yes | Weighted elevation difference vs neighbors (m); null for isolated stations |
+| `split` | string | No | `"train"` \| `"val"` \| `"test"` (assigned by cutoff date, not replayed in real-time) |
