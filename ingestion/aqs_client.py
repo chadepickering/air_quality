@@ -75,17 +75,37 @@ def fetch_monitors_by_county(state: str, county: str, param_code: str) -> list[d
     return resp.json().get("Data", [])
 
 
+def _monitor_type(m: dict) -> str:
+    """
+    Derive instrument type from AQS monitor metadata.
+
+    AQS collection_frequency "CONTINUOUS" identifies FEM instruments
+    (BAM-1020, TEOM-FDMS) that report hourly data.  All other values
+    (e.g. "DAILY") indicate FRM filter-based 24-hour samplers.
+
+    Returns "FEM" or "FRM".
+    """
+    cf = (m.get("collection_frequency") or "").upper()
+    return "FEM" if "CONTINUOUS" in cf else "FRM"
+
+
 def build_station_list() -> pd.DataFrame:
     """
-    Discover all active PM2.5 continuous monitors across SCAQMD counties within
-    the LA metro bbox.
+    Discover all active PM2.5 monitors across SCAQMD counties within the LA metro bbox.
 
     Queries monitors/byCounty for PM2.5 (88101), deduplicates by site
     (multiple POCs at the same physical site → one row), excludes closed
     monitors, and filters to the LA metro bounding box.
 
+    monitor_type derivation: a site is "FEM" if any POC reports continuously
+    (collection_frequency == "CONTINUOUS").  A site is "FRM" only if every POC
+    uses a filter-based 24-hour method.  FEM sites are the 14 stations with
+    hourly PM2.5 data; FRM sites have no hourly instrument and are absent from
+    raw_readings for PM2.5.
+
     Returns DataFrame with columns:
-        station_id, name, lat, lon, elevation_m, county_code, state_code
+        station_id, name, lat, lon, elevation_m, county_code, state_code,
+        monitor_type
     """
     seen: dict[str, dict] = {}
 
@@ -101,16 +121,21 @@ def build_station_list() -> pd.DataFrame:
             if m.get("close_date"):
                 continue
             sid = f"{m['state_code']}-{m['county_code']}-{m['site_number']}"
+            mtype = _monitor_type(m)
             if sid not in seen:
                 seen[sid] = {
-                    "station_id":  sid,
-                    "name":        m.get("local_site_name") or m.get("address", ""),
-                    "lat":         lat,
-                    "lon":         lon,
-                    "elevation_m": float(m["elevation"]) if m.get("elevation") is not None else None,
-                    "county_code": m["county_code"],
-                    "state_code":  m["state_code"],
+                    "station_id":   sid,
+                    "name":         m.get("local_site_name") or m.get("address", ""),
+                    "lat":          lat,
+                    "lon":          lon,
+                    "elevation_m":  float(m["elevation"]) if m.get("elevation") is not None else None,
+                    "county_code":  m["county_code"],
+                    "state_code":   m["state_code"],
+                    "monitor_type": mtype,
                 }
+            elif mtype == "FEM":
+                # A site with mixed POCs is FEM if any POC is continuous
+                seen[sid]["monitor_type"] = "FEM"
         time.sleep(0.5)
 
     df = pd.DataFrame(list(seen.values()))
@@ -274,7 +299,7 @@ if __name__ == "__main__":
     df_stations = build_station_list()
     print(f"Found {len(df_stations)} active PM2.5 stations within LA metro bbox.")
     save_station_list(df_stations)
-    print(df_stations[["station_id", "name", "lat", "lon", "elevation_m"]].to_string(index=False))
+    print(df_stations[["station_id", "name", "lat", "lon", "elevation_m", "monitor_type"]].to_string(index=False))
 
     station_ids = set(df_stations["station_id"])
 

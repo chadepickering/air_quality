@@ -91,11 +91,17 @@ def _impute_series(s: pd.Series) -> pd.Series:
 
         elif 4 <= gap_len <= 24:
             for ts in block.index:
-                window_start = ts - pd.Timedelta(days=7)
-                window = s[window_start : ts - pd.Timedelta(hours=1)]
-                same_hr = window[window.index.hour == ts.hour].dropna()
-                if not same_hr.empty:
-                    s[ts] = same_hr.median()
+                for lookback_days in (7, 14):
+                    window = s[ts - pd.Timedelta(days=lookback_days) : ts - pd.Timedelta(hours=1)]
+                    same_hr = window[window.index.hour == ts.hour].dropna()
+                    if len(same_hr) >= 4:
+                        s[ts] = same_hr.median()
+                        break
+                else:
+                    # Fewer than 4 samples even in 14-day window (start of record);
+                    # use whatever is available rather than leaving NaN
+                    if not same_hr.empty:
+                        s[ts] = same_hr.median()
 
         # gap_len > 24: leave as NaN
 

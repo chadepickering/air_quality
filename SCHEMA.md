@@ -23,8 +23,16 @@ or downstream visualizations.
 **Row count (5-year pull):** 2,634,473  
 **Date range:** 2021-03-01 → 2026-03-01 (UTC)
 
-One row per station × parameter × UTC hour. Timestamps are stored as naive UTC
-(timezone info stripped before insert to prevent DuckDB DST conversion artifacts).
+**Schema shape:** Long (normalized) format — one row per station × **parameter** × UTC hour.
+The same station-hour can have up to 5 rows (one per pollutant). This table contains
+777,345 distinct `(station_id, timestamp)` pairs; the 2.6M total is ~3.4× that because
+not every parameter is measured at every station and every hour (CO has 438K rows, O3
+has 676K — coverage varies by instrument type). See `processed_features` for the wide
+(denormalized) form with one row per station-hour.
+
+Timestamps are stored as naive UTC (timezone info stripped before insert to prevent DuckDB
+DST conversion artifacts — a DST fallback maps two different UTC hours to the same local
+time, causing primary key violations within a single insert batch).
 
 | Column | Type | Description |
 |---|---|---|
@@ -89,11 +97,20 @@ models are not mixing unit systems when computing composite features.
 **File:** `data/processed/aq.duckdb`  
 **Primary key:** `(station_id, timestamp)`  
 **Populated by:** `streaming/feature_engineering.py`  
-**Expected row count:** ~833,000 (19 stations × ~43,800 hours per 5-year range)
+**Expected row count:** ~826,000 (sum of each station's reindexed hourly range)
 
-One row per station × UTC hour. Every hour in each station's observed date range
-is present after reindexing — gaps from raw_readings appear here as imputed values
-or NaN (for outages > 24 hours).
+**Schema shape:** Wide (denormalized) format — one row per station × UTC hour, with a
+separate column for each pollutant. This is the reshaped, imputed, and feature-enriched
+form of `raw_readings`. The row count relationship:
+
+| Stage | Rows | Explanation |
+|---|---|---|
+| `raw_readings` | 2,634,473 | Long format: one row per station × **parameter** × hour |
+| Distinct (station, timestamp) pairs | 777,345 | Unique station-hours present in raw data |
+| `processed_features` (after reindex) | ~826,000 | Wide format: reindex to full hourly grid per station, so hours where no parameter reported still get a row (all NaN, then imputed if gap ≤ 24 hr) |
+
+Every hour in each station's observed date range is present after reindexing — gaps
+from raw_readings appear as imputed values or NaN (for outages > 24 hours).
 
 ### Identifiers
 
@@ -214,14 +231,18 @@ feature columns are NaN for all rows.
 | `elevation_m` | float | Station elevation in meters above sea level, sourced directly from the AQS `monitors/byCounty` response. Complete for all 19 stations (no external elevation API needed). |
 | `county_code` | string | 3-digit FIPS county code (e.g., `"037"` = Los Angeles, `"059"` = Orange, `"065"` = Riverside, `"071"` = San Bernardino, `"111"` = Ventura). |
 | `state_code` | integer | FIPS state code. `6` for California (stored as integer by pandas CSV round-trip). |
+| `monitor_type` | string | Instrument class. `"FEM"` = Federal Equivalent Method, continuous hourly sampler (BAM-1020 or TEOM-FDMS). `"FRM"` = Federal Reference Method, filter-based 24-hour integrated sampler. Derived from AQS `collection_frequency` field (`"CONTINUOUS"` → FEM); a site with mixed POC types is classified FEM if any POC is continuous. **Use `monitor_type == "FEM"` to subset to the 14 stations with hourly PM2.5 data.** |
 
 ### Station coverage note
 
-19 stations are discovered in the bounding box. Of these, 14 operate continuous
-hourly PM2.5 instruments (BAM/TEOM-FDMS). The remaining 5 are FRM (filter-based
-reference method) sites that collect 24-hour integrated samples — they have no
-hourly data in AQS and are therefore absent from `raw_readings` for PM2.5,
-though they may appear for other parameters.
+19 stations are discovered in the bounding box. 14 are `FEM` (continuous hourly
+PM2.5 instruments — BAM-1020 or TEOM-FDMS); 5 are `FRM` (filter-based, 24-hour
+integrated samples). FRM sites have no hourly PM2.5 data in AQS and are absent
+from `raw_readings` for PM2.5, though they may appear for other parameters (NO2,
+O3, CO) if co-located instruments exist.
+
+FRM stations: Reseda (06-037-1201), Pico Rivera #2 (06-037-1602), Pasadena
+(06-037-2005), Fontana (06-071-2002), San Bernardino (06-071-9004).
 
 ---
 
