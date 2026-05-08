@@ -6,7 +6,7 @@ python-dotenv
 haversine
 
 # Kafka
-kafka-python
+kafka-python-ng
 
 # PySpark streaming
 pyspark
