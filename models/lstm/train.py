@@ -19,8 +19,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 from pathlib import Path
+
+from dotenv import load_dotenv
+load_dotenv()
 
 import duckdb
 import numpy as np
@@ -122,6 +126,7 @@ def build_windows(
         X: float32 array of shape (N, SEQ_LEN, N_FEATURES)
         y: float32 array of shape (N, 4)
     """
+    df = df.reset_index(drop=True)   # guarantee 0-based index for positional slicing below
     raw = df[FEATURE_COLS].values.astype(np.float32)
     scaled = apply_scaler(raw.copy(), mean, std)
 
@@ -244,8 +249,9 @@ def train(
     if use_wandb:
         try:
             import wandb
+            wandb.login(key=os.getenv("WANDB_API_KEY"))
             wandb.init(
-                project="air-quality-forecasting",
+                project=os.getenv("WANDB_PROJECT", "air-quality-forecasting"),
                 name="lstm-baseline",
                 config={
                     "model": "LSTM",

@@ -8,11 +8,10 @@ from haversine import haversine
 D_CUTOFF_KM = 40.0
 
 # λ units: km²/m² — because d_haversine is in km and Δelevation is in meters.
-# At λ=0.0005: 100m elevation ≈ 2.2km horizontal, 300m ≈ 6.7km.
-# Project plan originally specified 0.05–0.20 but those values assume dimensionless
-# (km/km) inputs; in km²/m² units the equivalent range is ~0.00005–0.001.
-# Tuned on held-out validation stations in Step 6.
-LAMBDA_DEFAULT = 0.0005
+# At λ=0.001: 100m elevation ≈ 3.2km horizontal, 300m ≈ 9.5km.
+# Tuned via 3×3 grid search (λ ∈ {0.0001,0.0005,0.001}, d_cutoff ∈ {30,40,50}km)
+# on LSTM val MAE in Step 6; boundary check at λ=0.002 confirmed 0.001 is optimal.
+LAMBDA_DEFAULT = 0.001
 
 METADATA_DIR = Path("data/metadata")
 

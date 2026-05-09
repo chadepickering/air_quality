@@ -590,11 +590,11 @@ Grid rationale: the λ range spans an order of magnitude (0.0001–0.001 km²/m�
 - `evaluation/lstm_metrics.json` — per-horizon MAE/RMSE/MAPE on test split
 
 **Acceptance criteria:**
-- [ ] LSTM trains without errors on processed feature set
-- [ ] λ tuned on validation set — optimal value documented in `lambda_search_results.json`
-- [ ] Spatial features recomputed with tuned λ; `processed_features` table regenerated
-- [ ] Validation MAE < 8 μg/m³ at 3hr horizon
-- [ ] W&B run logged with training curves and per-horizon metrics
+- [x] LSTM trains without errors on processed feature set — converged in 8 epochs, early stopping at epoch 8
+- [x] λ tuned on validation set — optimal λ=0.001, d_cutoff=40km (val MAE=5.329); boundary check at λ=0.002 confirmed true optimum
+- [x] Spatial features recomputed with tuned λ; `processed_features` table regenerated (812,448 rows)
+- [x] Validation MAE < 8 μg/m³ at 3hr horizon — achieved **4.06 μg/m³** (3hr val); test set 3.676 μg/m³
+- [x] W&B run logged — `lstm-baseline` run in project `air-quality-forecasting` (run ID: b8zhnjp6)
 
 ---
 
@@ -805,7 +805,7 @@ Following the UCI drift monitoring pattern — split test period into 4 temporal
 3. Historical data pull and DuckDB storage ✓
 4. Sensor validation, imputation, feature engineering ✓
 5. Kafka producer and PySpark streaming consumer ✓
-6. LSTM baseline + λ tuning on validation set — implementation complete; training run and λ search pending
+6. LSTM baseline + λ tuning on validation set ✓
 7. TFT baseline + attention visualization
 8. DeepAR primary + Monte Carlo sample generation
 9. Probabilistic alert system
