@@ -278,7 +278,7 @@ air_quality/
 | Message broker | Apache Kafka (Docker) | Free |
 | Stream processing | PySpark Structured Streaming | Free |
 | Time series DB | InfluxDB (Docker) | Free |
-| LSTM baseline | TensorFlow/Keras | Free |
+| LSTM baseline | PyTorch | Free |
 | TFT baseline | PyTorch Forecasting | Free |
 | DeepAR primary | GluonTS (PyTorch backend) | Free |
 | Experiment tracking | Weights & Biases (free tier) | Free |
@@ -561,21 +561,38 @@ Rationale:
 
 ### Step 6 — LSTM Baseline
 
-**Files:** `models/lstm/model.py`, `models/lstm/train.py`, `models/lstm/evaluate.py`
+**Files:** `models/lstm/model.py`, `models/lstm/train.py`, `models/lstm/evaluate.py`, `models/lstm/lambda_search.py`
 
-**Architecture:** Two-layer LSTM (64 units → 32 units), 24hr lookback, point forecast output for 4 horizons (3hr, 12hr, 24hr, 72hr).
+**Framework:** PyTorch (consistent with TFT and DeepAR in Steps 7–8; TensorFlow/Keras dropped to avoid introducing a second DL framework for the baseline alone).
+
+**Architecture (`model.py`):** `LSTMForecaster` — two stacked LSTM layers (hidden_size=64, dropout=0.2 between layers), followed by four independent linear output heads, one per forecast horizon (3hr, 12hr, 24hr, 72hr). Input shape: `(batch, 24, 21)`. Output shape: `(batch, 4)`. Point forecast (no uncertainty quantification — that is DeepAR's role).
+
+**Dataset and normalization (`train.py`):** `AQDataset` builds sliding 24-hour windows from `processed_features`. For each station, a window at position i uses features at hours `[i-23, …, i]` as input and raw PM2.5 at `[i+3, i+12, i+24, i+72]` as targets. Windows where any target PM2.5 is NaN are dropped. Z-score scaler is fit on train-split rows only and saved to `models/lstm/scaler.npz` for reuse by `evaluate.py` and `lambda_search.py`. Val windows that start near the train/val split boundary receive 96 hours of prepended train context so the lookback is always fully populated.
+
+**Seasonality coverage:** The 24hr window + feature set gives three tiers of seasonality signal: (1) diurnal — direct from the 24hr raw history and `hour_of_day`; (2) weekly — `day_of_week` and `is_weekend` encode traffic-driven weekly cycles; (3) inter-seasonal — `month` (1–12) is the primary annual signal, with the model learning seasonal regimes (wildfire autumn, inversion winter) implicitly from 4.5 years of training weights. Year-over-year trends are not explicitly modeled. The LSTM's 24hr window is a known limitation relative to TFT (168hr encoder) and DeepAR (168hr context); the metric gap at 12hr+ horizons is expected and informative.
+
+**Training loop:** Adam optimizer (lr=1e-3), CosineAnnealingLR over the full epoch budget, gradient clipping (max_norm=1.0), early stopping on val MAE (patience=5). Best checkpoint saved to `models/lstm/best_model.pt`. W&B logging: train loss, val MAE, per-horizon val MAE, and LR each epoch. Targets are evaluated in raw μg/m³ (not scaled) so MAE is directly interpretable.
 
 **Train/validation/test split:** (see Step 4 for full rationale and leakage rules)
 - Train: Mar 2021 – Sep 2025 (`TRAIN_END = date(2025, 9, 30)`)
-- Validation: Oct – Dec 2025 (`VAL_END = date(2025, 12, 31)`) — used for λ tuning and hyperparameter selection
+- Validation: Oct – Dec 2025 (`VAL_END = date(2025, 12, 31)`) — used for λ tuning and early stopping
 - Test: Jan – Mar 2026 — held out until all models are frozen
 
-**λ tuning on validation set:** Grid search over λ ∈ {0.05, 0.10, 0.15, 0.20} and d_cutoff ∈ {30, 40, 50} km. Select combination minimizing validation MAE. Recompute spatial features with tuned parameters before TFT and DeepAR.
+**λ grid search (`lambda_search.py`):** In-memory 3×3 search over λ ∈ {0.0001, 0.0005, 0.001} km²/m² and d_cutoff ∈ {30, 40, 50} km. For each combination, only the six spatial columns are recomputed from the loaded `processed_features` table — all other features remain fixed, avoiding redundant DuckDB writes. Each point trains the LSTM for 15 proxy epochs; the combination with lowest mean val MAE is selected. If the best result lands on a grid boundary, one additional point is added in that direction before committing. Results written to `models/lstm/lambda_search_results.json`. After the search: update `LAMBDA_DEFAULT` and `D_CUTOFF_KM` in `ingestion/station_registry.py`, re-run `python -m streaming.feature_engineering`, then run full training.
+
+Grid rationale: the λ range spans an order of magnitude (0.0001–0.001 km²/m²), bracketing the physically meaningful elevation-penalty window for the LA basin. A 5×5 expansion was considered and rejected — the spatial loss surface is smooth and the computational cost (~3× longer, ~85–150 min) exceeds the marginal precision gain for a baseline model.
+
+**Outputs:**
+- `models/lstm/scaler.npz` — z-score mean/std fit on train split
+- `models/lstm/best_model.pt` — best checkpoint by val MAE
+- `models/lstm/train_metrics.json` — final epoch metrics and stopped epoch
+- `models/lstm/lambda_search_results.json` — full grid results and best combo
+- `evaluation/lstm_metrics.json` — per-horizon MAE/RMSE/MAPE on test split
 
 **Acceptance criteria:**
 - [ ] LSTM trains without errors on processed feature set
-- [ ] λ tuned on validation set — optimal value documented
-- [ ] Spatial features recomputed with tuned λ
+- [ ] λ tuned on validation set — optimal value documented in `lambda_search_results.json`
+- [ ] Spatial features recomputed with tuned λ; `processed_features` table regenerated
 - [ ] Validation MAE < 8 μg/m³ at 3hr horizon
 - [ ] W&B run logged with training curves and per-horizon metrics
 
@@ -788,7 +805,7 @@ Following the UCI drift monitoring pattern — split test period into 4 temporal
 3. Historical data pull and DuckDB storage ✓
 4. Sensor validation, imputation, feature engineering ✓
 5. Kafka producer and PySpark streaming consumer ✓
-6. LSTM baseline + λ tuning on validation set
+6. LSTM baseline + λ tuning on validation set — implementation complete; training run and λ search pending
 7. TFT baseline + attention visualization
 8. DeepAR primary + Monte Carlo sample generation
 9. Probabilistic alert system
