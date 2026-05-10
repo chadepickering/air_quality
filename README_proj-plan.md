@@ -301,8 +301,8 @@ All three models are evaluated on the same held-out test period using the same f
 
 ### Probabilistic Metrics (DeepAR primary, TFT quantiles)
 - CRPS — Continuous Ranked Probability Score (primary probabilistic metric)
-- Prediction Interval Coverage — what fraction of true values fall within the 90% PI
-- Sharpness — mean width of prediction intervals (narrower is better, conditional on coverage)
+- Prediction Interval Coverage — what fraction of true values fall within the 90% PI (p5–p95 bounds)
+- Sharpness — mean width of p5–p95 interval (narrower is better, conditional on coverage)
 
 ### Alert-Specific Metrics
 - Advisory threshold Brier score — calibration of P(PM2.5 > 35.4)
@@ -602,19 +602,21 @@ Grid rationale: the λ range spans an order of magnitude (0.0001–0.001 km²/m�
 
 **Files:** `models/tft/model.py`, `models/tft/train.py`, `models/tft/attention_viz.py`
 
-TFT via PyTorch Forecasting. Key capabilities: variable selection networks (learns which features matter per station), multi-head attention (identifies which historical timesteps matter at each horizon), quantile regression (10th/50th/90th percentile forecasts for PI coverage evaluation).
+TFT via PyTorch Forecasting. Key capabilities: variable selection networks (learns which features matter per station), multi-head attention (identifies which historical timesteps matter at each horizon), quantile regression (5th/50th/95th percentile forecasts for 90% PI coverage evaluation).
+
+**Quantile definition:** Output quantiles are `[0.05, 0.5, 0.95]`. The p50 (median) is the point forecast used for MAE/RMSE comparison with the LSTM. The p5–p95 interval is the 90% prediction interval — consistent with DeepAR's evaluation and with the health alert application where conservative uncertainty bounds are preferable.
 
 **Key outputs to visualize:**
 - Variable selection weights: which features TFT finds most informative per station
 - Attention patterns: which historical hours most influence each horizon
-- Quantile forecasts: 90% PI coverage evaluation
+- Quantile forecasts: 90% PI coverage and sharpness (p5/p95 bounds)
 
 **Acceptance criteria:**
 - [ ] TFT trains without errors
 - [ ] TFT outperforms LSTM on validation MAE at 12hr and 24hr horizons
 - [ ] Variable selection weights visualized and saved
 - [ ] Attention patterns visualized for representative stations
-- [ ] 90% PI coverage between 85–95%
+- [ ] 90% PI coverage between 85–95% (p5/p95 bounds; a 90% PI requires p5–p95, not p10–p90)
 
 ---
 
@@ -767,7 +769,7 @@ Following the UCI drift monitoring pattern — split test period into 4 temporal
 | MAE | LSTM, TFT, DeepAR median | Station × horizon |
 | RMSE | LSTM, TFT, DeepAR median | Station × horizon |
 | CRPS | DeepAR primary | Station × horizon |
-| PI Coverage (90%) | TFT, DeepAR | Station × horizon |
+| PI Coverage (90%, p5–p95) | TFT, DeepAR | Station × horizon |
 | Sharpness | TFT, DeepAR | Station × horizon |
 
 ### Alert System
