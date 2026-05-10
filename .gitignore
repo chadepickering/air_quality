@@ -12,13 +12,18 @@ __pycache__/
 data/raw/
 data/processed/
 
-# Trained model checkpoints
+# Trained model checkpoints and artifacts
 models/lstm/checkpoints/
 models/tft/checkpoints/
 models/deepar/checkpoints/
 *.pt
+*.ckpt
 *.h5
 *.pkl
+*.npz
+models/lstm/train_metrics.json
+models/lstm/lambda_search_results.json
+models/tft/dataset_params.pt
 
 # Experiment tracking
 wandb/
