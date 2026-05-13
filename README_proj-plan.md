@@ -612,11 +612,16 @@ TFT via PyTorch Forecasting. Key capabilities: variable selection networks (lear
 - Quantile forecasts: 90% PI coverage and sharpness (p5/p95 bounds)
 
 **Acceptance criteria:**
-- [ ] TFT trains without errors
+- [ ] TFT trains without errors — training in progress (best val_loss=0.761 at epoch ~48; still improving)
 - [ ] TFT outperforms LSTM on validation MAE at 12hr and 24hr horizons
 - [ ] Variable selection weights visualized and saved
 - [ ] Attention patterns visualized for representative stations
 - [ ] 90% PI coverage between 85–95% (p5/p95 bounds; a 90% PI requires p5–p95, not p10–p90)
+
+**Implementation notes:**
+- Training interrupted once by disk-full (epoch 16, val_loss=0.849); resumed from checkpoint. Training has been continuous since May 9, 2026. Best val_loss falls from 1.384 (epoch 0) → 0.761 (epoch ~48) after ~50 total epochs.
+- `venv_deepar` conflict: gluonts[torch] requires `lightning<2.5`; TFT uses lightning==2.6.1. These cannot share a venv — DeepAR uses `venv_deepar/` (separate). Main `.venv/` kept at lightning==2.6.1 exclusively for TFT evaluation.
+- `dataset_params.pt` regenerated 2026-05-12 after pandas version conflict introduced by gluonts install.
 
 ---
 
@@ -624,27 +629,39 @@ TFT via PyTorch Forecasting. Key capabilities: variable selection networks (lear
 
 **Files:** `models/deepar/model.py`, `models/deepar/train.py`, `models/deepar/sample_forecasts.py`
 
-DeepAR via GluonTS (PyTorch backend). Autoregressive recurrent model outputting full predictive distributions via Monte Carlo trajectories. StudentT output distribution chosen for heavy-tailed PM2.5 behavior during wildfire and inversion events.
+DeepAR via GluonTS 0.16.2 (PyTorch backend). Autoregressive RNN outputting full predictive distributions via Monte Carlo sampling. StudentT output distribution chosen for heavy-tailed PM2.5 behavior during wildfire and inversion events.
 
+**Architecture:**
 ```python
-from gluonts.torch.model.deepar import DeepAREstimator
-from gluonts.torch.distributions import StudentTOutput
-
-estimator = DeepAREstimator(
-    freq="H",
+DeepAREstimator(
+    freq="h",
     prediction_length=72,
-    context_length=168,       # 7-day lookback
+    context_length=168,          # 7-day lookback — matches TFT encoder
     distr_output=StudentTOutput(),
-    num_feat_dynamic_real=15,
-    num_feat_static_cat=1,    # station ID
-    trainer_kwargs={"max_epochs": 50}
+    num_feat_dynamic_real=20,    # 4 calendar + 16 pollutant/lag/spatial
+    num_feat_static_cat=1,       # station_id (embedded)
+    cardinality=[14],            # 14 stations (FRM-only excluded; fair comparison)
+    num_batches_per_epoch=100,   # stochastic batching: ~30s/epoch vs TFT's ~100min
+    trainer_kwargs={"max_epochs": 50, "accelerator": "auto", "gradient_clip_val": 0.1}
 )
 ```
 
-**Monte Carlo sample generation:** 500 trajectories per station per forecast. Samples feed directly into the alert system's breach probability computation.
+**Monte Carlo sample generation:** 500 trajectories per window. Rolling evaluation strides 24h through test period (~59 windows/station × 14 stations). Samples saved to `evaluation/deepar_samples.npz` for alert system breach probability computation.
+
+**Venv isolation:** All DeepAR work runs in `venv_deepar/` (gluonts 0.16.2, lightning 2.4.0). The lightning version conflict with TFT is the reason for separation.
+
+**CRPS:** Energy-form Continuous Ranked Probability Score — primary DeepAR metric. Jointly penalises bias and over/under-confidence. Computed via sorted-samples O(N log N) algorithm.
+
+**Substep status:**
+- [x] 8.1 — `venv_deepar/` created; gluonts 0.16.2 + lightning 2.4.0 + torch 2.11.0 verified
+- [x] 8.2 — `models/deepar/model.py` — constants, StudentT estimator factory, num_batches_per_epoch=100
+- [x] 8.3 — `models/deepar/train.py` — ListDataset construction, FRM-only exclusion, NaN fill, build_datasets, W&B integration
+- [x] 8.4 — `models/deepar/sample_forecasts.py` — rolling windows, 500-sample inference, CRPS/MAE/RMSE/PI metrics, npz output
+- [x] 8.5 — `tests/test_deepar.py` — 54 tests passing in venv_deepar (venv compat, constants, ListDataset structure, CRPS invariants, rolling windows, metrics helpers)
+- [ ] 8.6 — Run training (pending TFT completion to maintain focus)
 
 **Acceptance criteria:**
-- [ ] DeepAR trains without errors on all LA metro stations
+- [ ] DeepAR trains without errors on 14 LA metro stations
 - [ ] CRPS lower than LSTM and TFT equivalent
 - [ ] 90% prediction interval coverage between 85–95%
 - [ ] StudentT distribution produces wider intervals during high-PM2.5 periods
