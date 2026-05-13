@@ -166,11 +166,12 @@ def build_datasets(df: pd.DataFrame, batch_size: int = 128):
 # ---------------------------------------------------------------------------
 
 def train(
-    epochs:     int   = 50,
-    batch_size: int   = 128,
-    lr:         float = 1e-3,
-    patience:   int   = 5,
-    use_wandb:  bool  = True,
+    epochs:        int   = 50,
+    batch_size:    int   = 128,
+    lr:            float = 1e-3,
+    patience:      int   = 5,
+    use_wandb:     bool  = True,
+    resume_from:   Path | None = None,
 ) -> None:
     import lightning.pytorch as pl
     from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
@@ -183,8 +184,13 @@ def train(
     training, _, train_loader, val_loader = build_datasets(df, batch_size=batch_size)
     print(f"  Train batches: {len(train_loader)}  Val batches: {len(val_loader)}")
 
-    print("Building TFT model...")
-    model = build_tft(training)
+    if resume_from is None:
+        print("Building TFT model...")
+        model = build_tft(training)
+    else:
+        from pytorch_forecasting import TemporalFusionTransformer
+        print(f"Resuming from checkpoint: {resume_from}")
+        model = TemporalFusionTransformer.load_from_checkpoint(str(resume_from))
     print(f"  Parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     # --- callbacks ---
@@ -227,6 +233,9 @@ def train(
     )
 
     print("Training...")
+    # When resuming, model weights are already loaded via load_from_checkpoint above.
+    # Passing ckpt_path here would trigger a second torch.load with weights_only=True
+    # (PyTorch 2.6 default) which fails on GroupNormalizer globals in the checkpoint.
     trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
     best = callbacks[1].best_model_path
@@ -249,7 +258,8 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int,   default=128)
     parser.add_argument("--lr",         type=float, default=1e-3)
     parser.add_argument("--patience",   type=int,   default=5)
-    parser.add_argument("--no-wandb",   action="store_true")
+    parser.add_argument("--no-wandb",     action="store_true")
+    parser.add_argument("--resume-from",  type=Path, default=None)
     args = parser.parse_args()
 
     train(
@@ -258,4 +268,5 @@ if __name__ == "__main__":
         lr=args.lr,
         patience=args.patience,
         use_wandb=not args.no_wandb,
+        resume_from=args.resume_from,
     )
