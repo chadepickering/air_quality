@@ -63,7 +63,8 @@ QUANTILES = [0.05, 0.5, 0.95]   # for summary statistics; samples used for alert
 # Estimator factory
 # ---------------------------------------------------------------------------
 
-MODEL_DIR = Path(__file__).parent
+MODEL_DIR      = Path(__file__).parent
+PREDICTOR_PATH = MODEL_DIR / "predictor"
 
 
 def build_estimator(
