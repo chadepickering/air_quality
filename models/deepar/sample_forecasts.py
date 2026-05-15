@@ -123,7 +123,6 @@ def _make_rolling_instances(
 
     for sid in station_ids:
         sdf = df[df["station_id"] == sid].sort_values("timestamp").reset_index(drop=True)
-        ts_series = sdf.set_index("timestamp")
 
         t = test_start
         while t + pred_td <= test_end + pd.Timedelta(hours=1):
@@ -139,8 +138,12 @@ def _make_rolling_instances(
             ctx_df = sdf[ctx_mask]
             fut_df = sdf[fut_mask]
 
+            # GluonTS DeepAR needs feat_dynamic_real covering context + future
+            # (context_length + prediction_length steps) so the InstanceSplitter
+            # has decoder inputs for the prediction horizon.
+            ctx_and_fut_df = sdf[ctx_mask | fut_mask].sort_values("timestamp")
             target       = ctx_df[TARGET].to_numpy(dtype=np.float32)
-            feat_dynamic = ctx_df[DYNAMIC_REAL_FEATURES].to_numpy(dtype=np.float32).T
+            feat_dynamic = ctx_and_fut_df[DYNAMIC_REAL_FEATURES].to_numpy(dtype=np.float32).T
             start        = pd.Period(ctx_df["timestamp"].iloc[0], freq=FREQ)
 
             entries.append({

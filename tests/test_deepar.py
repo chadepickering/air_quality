@@ -443,7 +443,9 @@ class TestRollingWindows:
         assert actuals.dtype == np.float32
 
     def test_feat_dynamic_real_orientation(self):
-        """feat_dynamic_real must be (NUM_FEAT_DYNAMIC_REAL, T) not (T, NUM_FEAT_DYNAMIC_REAL)."""
+        """feat_dynamic_real must be (NUM_FEAT_DYNAMIC_REAL, T) not (T, NUM_FEAT_DYNAMIC_REAL).
+        T spans context + future (up to CONTEXT_LENGTH + PREDICTION_LENGTH) so GluonTS
+        has decoder inputs for the prediction horizon."""
         df, ids, idx, test_start, test_end = self._setup(n_stations=1)
         entries, _, _, _ = _make_rolling_instances(
             df, ids, idx, test_start, test_end, PREDICTION_LENGTH, STRIDE_HOURS
@@ -451,7 +453,7 @@ class TestRollingWindows:
         assert len(entries) > 0
         fdr = entries[0]["feat_dynamic_real"]
         assert fdr.shape[0] == NUM_FEAT_DYNAMIC_REAL
-        assert fdr.shape[1] <= CONTEXT_LENGTH
+        assert fdr.shape[1] <= CONTEXT_LENGTH + PREDICTION_LENGTH
 
     def test_context_length_not_exceeded(self):
         """Each entry's target should be at most CONTEXT_LENGTH steps long."""
