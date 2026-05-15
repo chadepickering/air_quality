@@ -687,14 +687,36 @@ DeepAREstimator(
 - [x] 8.3 — `models/deepar/train.py` — ListDataset construction, FRM-only exclusion, NaN fill, build_datasets, W&B integration
 - [x] 8.4 — `models/deepar/sample_forecasts.py` — rolling windows, 500-sample inference, CRPS/MAE/RMSE/PI metrics, npz output; `feat_dynamic_real` bug fixed (see implementation notes)
 - [x] 8.5 — `tests/test_deepar.py` — 54 tests passing in venv_deepar (venv compat, constants, ListDataset structure, CRPS invariants, rolling windows, metrics helpers); `test_feat_dynamic_real_orientation` assertion updated to match fix
-- [ ] 8.6 — Run training; ready to start
+- [x] 8.6 — Training complete; predictor saved to `models/deepar/predictor/` (131 KB)
+- [ ] 8.7 — Run `sample_forecasts.py` — rolling inference, CRPS/MAE/RMSE/PI metrics, npz output
+
+**Training summary:**
+- 10 epochs (0–9), early stopped at epoch 9 (patience=5). Best val_loss=**3.178** at epoch 4.
+- val_loss is negative log-likelihood under StudentT — not directly comparable to LSTM MAE (5.076) or TFT quantile loss (0.761).
+- ~25s/epoch; total wall time ~4 minutes.
+- Full per-epoch history saved to `models/deepar/train_metrics.json`.
+
+| Epoch | val_loss | train_loss | new_best |
+|-------|----------|------------|----------|
+| 0     | 3.460    | 2.960      | ✓        |
+| 1     | 3.380    | 2.590      | ✓        |
+| 2     | 3.340    | 2.500      | ✓        |
+| 3     | 3.260    | 2.400      | ✓        |
+| 4     | **3.180**| 2.280      | ✓ best   |
+| 5     | 3.430    | 2.250      |          |
+| 6     | 3.290    | 2.160      |          |
+| 7     | 3.540    | 2.080      |          |
+| 8     | 3.560    | 2.110      |          |
+| 9     | 3.320    | 2.010      |          |
 
 **Implementation notes:**
+- `PYTORCH_ENABLE_MPS_FALLBACK=1` required: `aten::_standard_gamma` (used by StudentT sampling) is not implemented for MPS. The fallback routes gamma sampling to CPU; the rest of the forward pass runs on MPS.
+- W&B not logged: `wandb` in `venv_deepar` lacks the `login()` attribute (version incompatibility). Training ran console-only; metrics captured to `train_metrics.json` manually.
 - `feat_dynamic_real` shape fix (QC, 2026-05-15): `_make_rolling_instances` originally built entries with `feat_dynamic_real` of shape `(20, 168)` (context only). GluonTS DeepAR's InstanceSplitter needs `(20, 240)` — context + future — so the decoder has covariate inputs for the 72-step prediction horizon. Fixed to use `sdf[ctx_mask | fut_mask]` (context + future rows). This is train-eval consistent: training entries contain the full series, so GluonTS already had future covariate values during training. Future pollutant features (no2, pm10, etc.) are not truly knowable in production, but splitting into past/future covariate channels is not worth restructuring for this project.
 - `station_to_idx` consistency: both `train.py` and `sample_forecasts.py` use `sorted(df["station_id"].unique())` over the same 14 stations from DuckDB — static embedding indices will match at inference time.
 
 **Acceptance criteria:**
-- [ ] DeepAR trains without errors on 14 LA metro stations
+- [x] DeepAR trains without errors on 14 LA metro stations — 10 epochs, early stopped, predictor saved
 - [ ] CRPS lower than LSTM and TFT equivalent
 - [ ] 90% prediction interval coverage between 85–95%
 - [ ] StudentT distribution produces wider intervals during high-PM2.5 periods
