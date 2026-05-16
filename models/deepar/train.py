@@ -105,7 +105,7 @@ def _build_list_dataset(
             continue
 
         target = sdf[TARGET].to_numpy(dtype=np.float32)
-        feat_dynamic = sdf[DYNAMIC_REAL_FEATURES].to_numpy(dtype=np.float32).T  # (20, T)
+        feat_dynamic = sdf[DYNAMIC_REAL_FEATURES].to_numpy(dtype=np.float32).T  # (NUM_FEAT_DYNAMIC_REAL, T)
         start = pd.Period(sdf["timestamp"].iloc[0], freq=FREQ)
 
         entries.append({
@@ -148,7 +148,7 @@ def build_datasets(df: pd.DataFrame) -> tuple:
 def train(
     epochs:    int  = 50,
     use_wandb: bool = True,
-    patience:  int  = 5,
+    patience:  int  = 10,
 ) -> None:
     from lightning.pytorch.callbacks import EarlyStopping
 
@@ -220,7 +220,7 @@ def train(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train DeepAR PM2.5 forecaster")
     parser.add_argument("--epochs",   type=int,  default=50)
-    parser.add_argument("--patience", type=int,  default=5)
+    parser.add_argument("--patience", type=int,  default=10)
     parser.add_argument("--no-wandb", action="store_true")
     args = parser.parse_args()
 

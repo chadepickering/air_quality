@@ -8,7 +8,13 @@ for heavy-tailed PM2.5 behavior during wildfire and inversion events.
 Key design choices vs TFT:
   - Context length matches TFT encoder: 168hr (7-day) lookback.
   - Prediction length matches TFT decoder: 72hr.
-  - All 20 dynamic real features passed as past covariates.
+  - Only calendar features (4) passed as feat_dynamic_real — the only
+    covariates genuinely known in the future in production.
+  - PM2.5 lags handled via lags_seq=[1,3,24]: GluonTS computes these
+    internally and uses model predictions (not actual future values)
+    during inference, avoiding target leakage.
+  - All other covariates (NO2, O3, pollutant lags, spatial features)
+    dropped — not available in production at forecast time.
   - 1 static categorical: station_id (GluonTS embeds it automatically).
   - StudentT output: heavier tails than Gaussian — better coverage during
     extreme smoke events without over-widening intervals in clean periods.
@@ -37,23 +43,20 @@ PREDICTION_LENGTH = 72      # 3-day forecast horizon
 
 NUM_SAMPLES = 500           # Monte Carlo trajectories per forecast window
 
-# Dynamic real features: all 20 time-varying columns (calendar + pollutant/lag/spatial)
+# Only calendar features are genuinely known in the future in production.
+# PM2.5 lags are handled internally by lags_seq (no leakage).
+# Pollutant covariates, spatial features, and PM2.5 rolls are not available
+# at forecast time and are excluded.
 DYNAMIC_REAL_FEATURES = [
-    # Calendar (knowable in advance)
     "hour_of_day", "day_of_week", "month", "is_weekend",
-    # Pollutant covariates
-    "no2", "o3", "pm10", "co",
-    # PM2.5 rolling and lag
-    "pm25_roll3", "pm25_roll6", "pm25_roll24",
-    "pm25_lag1", "pm25_lag3", "pm25_lag24",
-    # Spatial lag features
-    "spatial_pm25_lag1", "spatial_pm25_lag3", "spatial_pm25_roll6",
-    "spatial_no2_lag1", "spatial_o3_lag1",
-    # Spatial elevation differential (static in practice, included as dynamic for simplicity)
-    "spatial_elev_diff",
 ]
 
-NUM_FEAT_DYNAMIC_REAL = len(DYNAMIC_REAL_FEATURES)   # 20
+# PM2.5 autoregressive lags passed to GluonTS internally.
+# During inference GluonTS feeds the model's own predictions back as lags
+# rather than actual observed values, so there is no target leakage.
+LAGS_SEQ = [1, 3, 24]
+
+NUM_FEAT_DYNAMIC_REAL = len(DYNAMIC_REAL_FEATURES)   # 4
 NUM_FEAT_STATIC_CAT   = 1                             # station_id
 
 TARGET    = "pm25"
@@ -99,6 +102,7 @@ def build_estimator(
         num_feat_dynamic_real=NUM_FEAT_DYNAMIC_REAL,
         num_feat_static_cat=NUM_FEAT_STATIC_CAT,
         cardinality=cardinality,
+        lags_seq=LAGS_SEQ,
         num_batches_per_epoch=100,
         trainer_kwargs=default_trainer_kwargs,
     )

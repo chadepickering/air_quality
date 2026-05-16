@@ -173,11 +173,11 @@ def evaluate(
     stride_hours: int = STRIDE_HOURS,
 ) -> dict:
     from gluonts.dataset.common import ListDataset
-    from gluonts.torch.model.deepar import DeepARPredictor
+    from gluonts.model.predictor import Predictor
 
     # --- load predictor ---
     print(f"Loading predictor from {predictor_path}...")
-    predictor = DeepARPredictor.deserialize(predictor_path)
+    predictor = Predictor.deserialize(predictor_path)
 
     # --- load full series (val context + test targets) ---
     print("Loading val+test data...")

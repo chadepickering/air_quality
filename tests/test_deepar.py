@@ -39,6 +39,7 @@ from models.deepar.model import (
     FREQ,
     HORIZON_INDICES,
     HORIZONS,
+    LAGS_SEQ,
     NUM_FEAT_DYNAMIC_REAL,
     NUM_FEAT_STATIC_CAT,
     NUM_SAMPLES,
@@ -69,7 +70,7 @@ def _make_synthetic_df(
 ) -> pd.DataFrame:
     """
     Synthetic DataFrame matching the processed_features schema used by DeepAR.
-    All DYNAMIC_REAL_FEATURES + TARGET are populated; station_id is a string.
+    Only calendar features + TARGET are populated (post leakage-fix design).
     """
     rng = np.random.default_rng(seed)
     rows = []
@@ -78,34 +79,22 @@ def _make_synthetic_df(
         sid = f"station_{s:02d}"
         for h in range(n_hours):
             ts = base_ts + pd.Timedelta(hours=h)
-            row: dict = {
-                "station_id": sid,
-                "timestamp":  ts,
-                "split":      "train",
+            rows.append({
+                "station_id":  sid,
+                "timestamp":   ts,
+                "split":       "train",
                 "hour_of_day": ts.hour,
                 "day_of_week": ts.dayofweek,
                 "month":       ts.month,
                 "is_weekend":  float(ts.dayofweek >= 5),
-                "pm25":  float(rng.uniform(5, 40)),
-                "no2":   float(rng.uniform(5, 50)),
-                "o3":    float(rng.uniform(10, 80)),
-                "pm10":  float(rng.uniform(5, 60)),
-                "co":    float(rng.uniform(0.1, 1.0)),
-            }
-            for col in [
-                "pm25_roll3", "pm25_roll6", "pm25_roll24",
-                "pm25_lag1", "pm25_lag3", "pm25_lag24",
-                "spatial_pm25_lag1", "spatial_pm25_lag3", "spatial_pm25_roll6",
-                "spatial_no2_lag1", "spatial_o3_lag1", "spatial_elev_diff",
-            ]:
-                row[col] = float(rng.uniform(5, 30))
-            rows.append(row)
+                "pm25":        float(rng.uniform(5, 40)),
+            })
 
     df = pd.DataFrame(rows)
     if inject_nan_frac > 0:
         n_nan = int(len(df) * inject_nan_frac)
         idx = rng.choice(len(df), n_nan, replace=False)
-        df.loc[idx, "pm25_lag24"] = np.nan
+        df.loc[idx, "pm25"] = np.nan
     return df
 
 
@@ -214,6 +203,21 @@ class TestModelConstants:
     def test_freq_is_hourly(self):
         assert FREQ == "h"
 
+    def test_lags_seq_contains_expected_horizons(self):
+        assert LAGS_SEQ == [1, 3, 24]
+
+    def test_build_estimator_uses_lags_seq(self):
+        from models.deepar.model import build_estimator
+        est = build_estimator(cardinality=[14])
+        assert est.lags_seq == LAGS_SEQ
+
+    def test_dynamic_real_features_are_calendar_only(self):
+        """After the leakage fix, only future-known calendar features remain."""
+        assert set(DYNAMIC_REAL_FEATURES) == {
+            "hour_of_day", "day_of_week", "month", "is_weekend"
+        }
+        assert NUM_FEAT_DYNAMIC_REAL == 4
+
 
 # ---------------------------------------------------------------------------
 # 3. train.py — FRM exclusion and NaN fill
@@ -301,7 +305,7 @@ class TestListDatasetConstruction:
 
     def test_nan_fill_leaves_no_nan(self):
         df = _make_synthetic_df(n_stations=2, n_hours=MIN_HOURS, inject_nan_frac=0.05)
-        # Apply the same fill logic as load_and_prepare_df
+        # Apply the same fill logic as load_and_prepare_df (NaN injected into pm25)
         df[ALL_FEATURE_COLS] = (
             df.groupby("station_id", group_keys=False)[ALL_FEATURE_COLS]
             .apply(lambda g: g.ffill().bfill().fillna(0.0))
@@ -337,19 +341,16 @@ class TestListDatasetConstruction:
             sid = f"station_{s:02d}"
             for h in range(n_hours):
                 ts = base_ts + pd.Timedelta(hours=h)
-                row: dict = {"station_id": sid, "timestamp": ts, "split": "train",
-                             "hour_of_day": ts.hour, "day_of_week": ts.dayofweek,
-                             "month": ts.month, "is_weekend": float(ts.dayofweek >= 5),
-                             "pm25": float(rng.uniform(5, 40)),
-                             "no2": 10.0, "o3": 20.0, "pm10": 15.0, "co": 0.5}
-                for col in [
-                    "pm25_roll3", "pm25_roll6", "pm25_roll24",
-                    "pm25_lag1", "pm25_lag3", "pm25_lag24",
-                    "spatial_pm25_lag1", "spatial_pm25_lag3", "spatial_pm25_roll6",
-                    "spatial_no2_lag1", "spatial_o3_lag1", "spatial_elev_diff",
-                ]:
-                    row[col] = 10.0
-                rows.append(row)
+                rows.append({
+                    "station_id":  sid,
+                    "timestamp":   ts,
+                    "split":       "train",
+                    "hour_of_day": ts.hour,
+                    "day_of_week": ts.dayofweek,
+                    "month":       ts.month,
+                    "is_weekend":  float(ts.dayofweek >= 5),
+                    "pm25":        float(rng.uniform(5, 40)),
+                })
         df = pd.DataFrame(rows)
         train_ds, val_ds, _, _ = build_datasets(df)
         train_entries = list(train_ds)
