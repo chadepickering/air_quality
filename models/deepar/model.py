@@ -2,8 +2,8 @@
 Step 8.2 — DeepAR constants and estimator factory.
 
 DeepAR via GluonTS (PyTorch backend). Autoregressive RNN outputting full
-predictive distributions via Monte Carlo sampling. StudentT output chosen
-for heavy-tailed PM2.5 behavior during wildfire and inversion events.
+predictive distributions via Monte Carlo sampling. ISQF output chosen to
+handle the asymmetric upper tail of PM2.5 during wildfire/inversion events.
 
 Key design choices vs TFT:
   - Context length matches TFT encoder: 168hr (7-day) lookback.
@@ -16,15 +16,21 @@ Key design choices vs TFT:
   - All other covariates (NO2, O3, pollutant lags, spatial features)
     dropped — not available in production at forecast time.
   - 1 static categorical: station_id (GluonTS embeds it automatically).
-  - StudentT output: heavier tails than Gaussian — better coverage during
-    extreme smoke events without over-widening intervals in clean periods.
+  - ISQFOutput (10 pieces, 9 interior knots): directly learns the quantile
+    function without parametric assumptions. Superior to StudentT for
+    asymmetric tails — StudentT v2 showed 20% of actuals above p95 at h3/h12
+    because the distribution was too symmetric to capture wildfire spikes.
   - 500 Monte Carlo samples: enough for stable breach-probability estimates
     at the 5% tail (±1% MC error at N=500).
 """
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, List, Optional, Tuple
+
+import torch
+from gluonts.torch.distributions import ISQFOutput
+from gluonts.torch.distributions.isqf import TransformedISQF
 
 # ---------------------------------------------------------------------------
 # Horizon configuration (consistent with LSTM and TFT)
@@ -62,6 +68,58 @@ NUM_FEAT_STATIC_CAT   = 1                             # station_id
 TARGET    = "pm25"
 QUANTILES = [0.05, 0.5, 0.95]   # for summary statistics; samples used for alerts
 
+# ISQF hyperparameters (v4 — extreme-knot fix)
+# num_pieces=10: unchanged.
+# qk_x: 0.05 and 0.95 added as explicit endpoint knots so the PI boundaries
+#   are directly learned by the spline rather than extrapolated by the
+#   exponential tail model. v3 with [0.1..0.9] produced 72% coverage because
+#   p5/p95 fell in the extrapolated tail region.
+ISQF_NUM_PIECES = 10
+ISQF_QK_X = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
+
+# ---------------------------------------------------------------------------
+# ISQF compatibility shim
+# ---------------------------------------------------------------------------
+
+class FixedISQFOutput(ISQFOutput):
+    """
+    ISQFOutput subclass fixing two GluonTS 0.16.2 + PyTorch ≥2.x incompatibilities:
+
+    1. loc=None crash: DeepAR calls distr_output.loss(scale=scale) without loc,
+       which passes loc=None into AffineTransform. PyTorch ≥2.x treats None as
+       a missing operand in AffineTransform._inverse → TypeError. Fix: replace
+       None with zeros_like(scale) before constructing the transform.
+
+    2. Wrong loss: ISQFOutput doesn't override DistributionOutput.loss(), so it
+       falls back to -log_prob(). ISQF is a quantile-function model, not a
+       density model, so CRPS is the correct training objective. Fix: override
+       loss() to call distribution.crps(), which TransformedISQF implements
+       analytically with correct affine rescaling.
+    """
+
+    def distribution(
+        self,
+        distr_args: Tuple,
+        loc: Optional[torch.Tensor] = None,
+        scale: Optional[torch.Tensor] = None,
+    ) -> TransformedISQF:
+        if loc is None and scale is not None:
+            loc = torch.zeros_like(scale)
+        return super().distribution(distr_args, loc=loc, scale=scale)
+
+    def loss(
+        self,
+        target: torch.Tensor,
+        distr_args: Tuple,
+        loc: Optional[torch.Tensor] = None,
+        scale: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        if loc is None and scale is not None:
+            loc = torch.zeros_like(scale)
+        distr = self.distribution(distr_args, loc=loc, scale=scale)
+        return distr.crps(target)
+
+
 # ---------------------------------------------------------------------------
 # Estimator factory
 # ---------------------------------------------------------------------------
@@ -84,12 +142,14 @@ def build_estimator(
                         to inject W&B logger and EarlyStopping callback).
     """
     from gluonts.torch.model.deepar import DeepAREstimator
-    from gluonts.torch.distributions import StudentTOutput
 
     default_trainer_kwargs = {
-        "max_epochs":        50,
-        "accelerator":       "auto",
-        "gradient_clip_val": 0.1,
+        "max_epochs":          50,
+        "accelerator":         "auto",
+        "gradient_clip_val":   0.1,
+        # ModelSummary runs a forward pass during fit() setup, which calls
+        # ISQFOutput.sample() before distribution params are set — loc=None crash.
+        "enable_model_summary": False,
     }
     if trainer_kwargs is not None:
         default_trainer_kwargs.update(trainer_kwargs)
@@ -98,7 +158,7 @@ def build_estimator(
         freq=FREQ,
         prediction_length=PREDICTION_LENGTH,
         context_length=CONTEXT_LENGTH,
-        distr_output=StudentTOutput(),
+        distr_output=FixedISQFOutput(num_pieces=ISQF_NUM_PIECES, qk_x=ISQF_QK_X),
         num_feat_dynamic_real=NUM_FEAT_DYNAMIC_REAL,
         num_feat_static_cat=NUM_FEAT_STATIC_CAT,
         cardinality=cardinality,

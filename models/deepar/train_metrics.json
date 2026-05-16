@@ -1,5 +1,8 @@
 {
   "model": "DeepAR",
+  "metric": "val_loss (NLL for v1/v2 StudentT; CRPS for v3/v4 ISQF — not comparable across versions or to LSTM MAE / TFT quantile loss)",
+  "predictor_path": "models/deepar/predictor/",
+  "notes": "PYTORCH_ENABLE_MPS_FALLBACK=1 required at runtime. W&B not used (incompatible wandb version in venv_deepar). v4 is the active predictor. FixedISQFOutput subclass required to work around GluonTS 0.16.2 + PyTorch 2.x incompatibility (loc=None crash + missing CRPS loss override).",
   "versions": [
     {
       "version": "v1",
@@ -47,9 +50,83 @@
         {"epoch": 11, "val_loss": 3.300, "train_loss": 2.050, "new_best": false},
         {"epoch": 12, "val_loss": 3.570, "train_loss": 2.140, "new_best": false}
       ]
+    },
+    {
+      "version": "v3",
+      "note": "FixedISQFOutput(num_pieces=10, qk_x=[0.1..0.9]): ISQF replacing StudentT. Loss is CRPS. Ran full 50 epochs (no early stopping); model still improving at ep47. Coverage regressed vs v2 (72% vs 86%) — intervals too narrow (13 vs 22 ug/m3); p5/p95 endpoints fell in exponential tail extrapolation region, not spline.",
+      "training_completed": true,
+      "early_stopping": false,
+      "patience": 10,
+      "max_epochs": 50,
+      "best_val_loss": 2.905,
+      "best_val_loss_metric": "CRPS",
+      "best_epoch": 47,
+      "stopped_at_epoch": 49,
+      "per_epoch_new_bests": [
+        {"epoch": 0,  "val_loss": 5.647},
+        {"epoch": 1,  "val_loss": 5.388},
+        {"epoch": 2,  "val_loss": 5.323},
+        {"epoch": 7,  "val_loss": 5.189},
+        {"epoch": 16, "val_loss": 4.878},
+        {"epoch": 17, "val_loss": 4.544},
+        {"epoch": 18, "val_loss": 4.278},
+        {"epoch": 19, "val_loss": 4.136},
+        {"epoch": 20, "val_loss": 4.100},
+        {"epoch": 21, "val_loss": 4.011},
+        {"epoch": 22, "val_loss": 3.870},
+        {"epoch": 23, "val_loss": 3.868},
+        {"epoch": 24, "val_loss": 3.822},
+        {"epoch": 25, "val_loss": 3.809},
+        {"epoch": 26, "val_loss": 3.772},
+        {"epoch": 27, "val_loss": 3.637},
+        {"epoch": 28, "val_loss": 3.624},
+        {"epoch": 29, "val_loss": 3.525},
+        {"epoch": 30, "val_loss": 3.465},
+        {"epoch": 31, "val_loss": 3.375},
+        {"epoch": 32, "val_loss": 3.240},
+        {"epoch": 34, "val_loss": 3.173},
+        {"epoch": 36, "val_loss": 3.168},
+        {"epoch": 37, "val_loss": 3.140},
+        {"epoch": 39, "val_loss": 3.136},
+        {"epoch": 40, "val_loss": 2.929},
+        {"epoch": 47, "val_loss": 2.905}
+      ]
+    },
+    {
+      "version": "v4",
+      "note": "FixedISQFOutput(num_pieces=10, qk_x=[0.05,0.1..0.9,0.95]): added 0.05 and 0.95 as explicit endpoint knots so p5/p95 are directly learned by spline rather than extrapolated by exponential tail model. 75-epoch budget; early stopping triggered at ep46 (best ep36).",
+      "training_completed": true,
+      "early_stopping": true,
+      "patience": 10,
+      "max_epochs": 75,
+      "best_val_loss": 2.801,
+      "best_val_loss_metric": "CRPS",
+      "best_epoch": 36,
+      "stopped_at_epoch": 46,
+      "per_epoch_new_bests": [
+        {"epoch": 0,  "val_loss": 5.327},
+        {"epoch": 1,  "val_loss": 4.664},
+        {"epoch": 2,  "val_loss": 4.640},
+        {"epoch": 3,  "val_loss": 4.634},
+        {"epoch": 4,  "val_loss": 4.407},
+        {"epoch": 8,  "val_loss": 4.243},
+        {"epoch": 9,  "val_loss": 3.875},
+        {"epoch": 13, "val_loss": 3.792},
+        {"epoch": 15, "val_loss": 3.685},
+        {"epoch": 16, "val_loss": 3.600},
+        {"epoch": 17, "val_loss": 3.572},
+        {"epoch": 18, "val_loss": 3.522},
+        {"epoch": 20, "val_loss": 3.397},
+        {"epoch": 21, "val_loss": 3.348},
+        {"epoch": 23, "val_loss": 3.280},
+        {"epoch": 26, "val_loss": 3.183},
+        {"epoch": 28, "val_loss": 3.123},
+        {"epoch": 30, "val_loss": 3.091},
+        {"epoch": 31, "val_loss": 2.938},
+        {"epoch": 34, "val_loss": 2.928},
+        {"epoch": 35, "val_loss": 2.847},
+        {"epoch": 36, "val_loss": 2.801}
+      ]
     }
-  ],
-  "metric": "val_loss (negative log-likelihood, StudentT; not comparable to LSTM MAE or TFT quantile loss)",
-  "predictor_path": "models/deepar/predictor/",
-  "notes": "PYTORCH_ENABLE_MPS_FALLBACK=1 required at runtime. W&B not used (incompatible wandb version in venv_deepar). v2 is the active predictor."
+  ]
 }

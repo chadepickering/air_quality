@@ -132,9 +132,9 @@ class TestVenvCompatibility:
 
     def test_deepar_estimator_importable(self):
         from gluonts.torch.model.deepar import DeepAREstimator
-        from gluonts.torch.distributions import StudentTOutput
+        from models.deepar.model import FixedISQFOutput
         assert DeepAREstimator is not None
-        assert StudentTOutput is not None
+        assert FixedISQFOutput is not None
 
 
 # ---------------------------------------------------------------------------
@@ -180,11 +180,18 @@ class TestModelConstants:
         est = build_estimator(cardinality=[14])
         assert isinstance(est, DeepAREstimator)
 
-    def test_build_estimator_student_t_output(self):
-        from gluonts.torch.distributions import StudentTOutput
-        from models.deepar.model import build_estimator
+    def test_build_estimator_isqf_output(self):
+        from models.deepar.model import build_estimator, FixedISQFOutput, ISQF_NUM_PIECES, ISQF_QK_X
         est = build_estimator(cardinality=[14])
-        assert isinstance(est.distr_output, StudentTOutput)
+        assert isinstance(est.distr_output, FixedISQFOutput)
+        assert est.distr_output.num_pieces == ISQF_NUM_PIECES
+        assert list(est.distr_output.qk_x) == ISQF_QK_X
+
+    def test_isqf_qk_x_covers_pi_endpoints(self):
+        """p5 and p95 must be explicit knots so the PI is learned, not tail-extrapolated."""
+        from models.deepar.model import ISQF_QK_X
+        assert 0.05 in ISQF_QK_X, "0.05 knot required for direct p5 learning"
+        assert 0.95 in ISQF_QK_X, "0.95 knot required for direct p95 learning"
 
     def test_build_estimator_num_batches_per_epoch(self):
         from models.deepar.model import build_estimator
