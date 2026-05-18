@@ -128,5 +128,32 @@
         {"epoch": 36, "val_loss": 2.801}
       ]
     }
+    ,{
+      "version": "v5",
+      "note": "FixedISQFOutput(num_pieces=10, qk_x=[0.025,0.05,0.1..0.9,0.95,0.975]): added 0.025/0.975 knots so exponential tail only covers outer 2.5% — reduces extrapolation pressure at h3/h12 tails. num_pieces unchanged to limit overfitting. 75-epoch budget; early stopping at ep39 (best ep29, earlier than v4's ep36).",
+      "training_completed": true,
+      "early_stopping": true,
+      "patience": 10,
+      "max_epochs": 75,
+      "best_val_loss": 2.551,
+      "best_val_loss_metric": "CRPS",
+      "best_epoch": 29,
+      "stopped_at_epoch": 39,
+      "per_epoch_new_bests": [
+        {"epoch": 0,  "val_loss": 5.055},
+        {"epoch": 1,  "val_loss": 3.872},
+        {"epoch": 2,  "val_loss": 3.346},
+        {"epoch": 4,  "val_loss": 3.341},
+        {"epoch": 5,  "val_loss": 3.240},
+        {"epoch": 6,  "val_loss": 3.232},
+        {"epoch": 8,  "val_loss": 3.154},
+        {"epoch": 11, "val_loss": 3.103},
+        {"epoch": 16, "val_loss": 3.042},
+        {"epoch": 21, "val_loss": 2.860},
+        {"epoch": 25, "val_loss": 2.765},
+        {"epoch": 27, "val_loss": 2.761},
+        {"epoch": 29, "val_loss": 2.551}
+      ]
+    }
   ]
 }

@@ -68,12 +68,12 @@ NUM_FEAT_STATIC_CAT   = 1                             # station_id
 TARGET    = "pm25"
 QUANTILES = [0.05, 0.5, 0.95]   # for summary statistics; samples used for alerts
 
-# ISQF hyperparameters (v4 — extreme-knot fix)
-# num_pieces=10: unchanged.
-# qk_x: 0.05 and 0.95 added as explicit endpoint knots so the PI boundaries
-#   are directly learned by the spline rather than extrapolated by the
-#   exponential tail model. v3 with [0.1..0.9] produced 72% coverage because
-#   p5/p95 fell in the extrapolated tail region.
+# ISQF hyperparameters (v4 — active predictor)
+# num_pieces=10: piecewise-linear spline with 10 segments.
+# qk_x: 0.05 and 0.95 as explicit endpoint knots so the PI boundaries are
+#   directly learned by the spline rather than extrapolated by the exponential
+#   tail model. v5 trial with [0.025..0.975] overfit — intervals collapsed
+#   from 13.9 to 7.1 ug/m3 and coverage dropped to 47%.
 ISQF_NUM_PIECES = 10
 ISQF_QK_X = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
 

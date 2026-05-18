@@ -1,0 +1,73 @@
+lr: 0.001
+model_kwargs:
+  cardinality:
+  - 14
+  context_length: 168
+  default_scale: null
+  distr_output: !!python/object/apply:copyreg.__newobj_ex__
+    args:
+    - !!python/name:models.deepar.model.FixedISQFOutput ''
+    - !!python/tuple []
+    - &id001 !!python/object/apply:collections.OrderedDict
+      - - - num_pieces
+          - 10
+        - - qk_x
+          - - 0.025
+            - 0.05
+            - 0.1
+            - 0.2
+            - 0.3
+            - 0.4
+            - 0.5
+            - 0.6
+            - 0.7
+            - 0.8
+            - 0.9
+            - 0.95
+            - 0.975
+        - - tol
+          - 0.0001
+    state:
+      __init_args__: *id001
+      args_dim:
+        beta_l: 1
+        beta_r: 1
+        quantile_knots: 13
+        spline_heights: 120
+        spline_knots: 120
+      beta: 0.0
+      num_pieces: 10
+      num_qk: 13
+      qk_x:
+      - 0.025
+      - 0.05
+      - 0.1
+      - 0.2
+      - 0.3
+      - 0.4
+      - 0.5
+      - 0.6
+      - 0.7
+      - 0.8
+      - 0.9
+      - 0.95
+      - 0.975
+      tol: 0.0001
+  dropout_rate: 0.1
+  embedding_dimension: null
+  freq: h
+  hidden_size: 40
+  lags_seq:
+  - 1
+  - 3
+  - 24
+  nonnegative_pred_samples: false
+  num_feat_dynamic_real: 9
+  num_feat_static_cat: 1
+  num_feat_static_real: 1
+  num_layers: 2
+  num_parallel_samples: 100
+  prediction_length: 72
+  scaling: true
+patience: 10
+weight_decay: 1.0e-08

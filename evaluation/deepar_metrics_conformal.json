@@ -1,0 +1,47 @@
+{
+  "horizons": {
+    "h3": {
+      "mae": 5.426334381103516,
+      "rmse": 7.703792095184326,
+      "pi_coverage_pct": 86.13707165109035,
+      "sharpness_mean_width": 18.035181045532227,
+      "crps": 4.144680985260461,
+      "conformal_margin_upper": 3.7774646282196045,
+      "conformal_margin_lower": 0.0
+    },
+    "h12": {
+      "mae": 5.924239158630371,
+      "rmse": 9.015822410583496,
+      "pi_coverage_pct": 87.22741433021807,
+      "sharpness_mean_width": 19.256057739257812,
+      "crps": 4.611115058930565,
+      "conformal_margin_upper": 5.2516350746154785,
+      "conformal_margin_lower": 0.0
+    },
+    "h24": {
+      "mae": 3.570878744125366,
+      "rmse": 6.090776443481445,
+      "pi_coverage_pct": 90.80996884735202,
+      "sharpness_mean_width": 15.680420875549316,
+      "crps": 2.7471274135159804,
+      "conformal_margin_upper": 2.52108097076416,
+      "conformal_margin_lower": 0.0
+    },
+    "h72": {
+      "mae": 3.7460079193115234,
+      "rmse": 6.340455532073975,
+      "pi_coverage_pct": 90.03115264797508,
+      "sharpness_mean_width": 17.197731018066406,
+      "crps": 2.9199310306543866,
+      "conformal_margin_upper": 3.8651227951049805,
+      "conformal_margin_lower": 0.0
+    }
+  },
+  "overall": {
+    "mae": 4.666865348815918,
+    "rmse": 7.3812665939331055,
+    "pi_coverage_pct": 88.55140186915888,
+    "sharpness": 17.542348861694336,
+    "crps": 3.605713622090348
+  }
+}

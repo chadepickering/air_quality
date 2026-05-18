@@ -188,7 +188,7 @@ class TestModelConstants:
         assert list(est.distr_output.qk_x) == ISQF_QK_X
 
     def test_isqf_qk_x_covers_pi_endpoints(self):
-        """p5 and p95 must be explicit knots so the PI is learned, not tail-extrapolated."""
+        """p5 and p95 must be explicit knots so the PI is spline-learned, not tail-extrapolated."""
         from models.deepar.model import ISQF_QK_X
         assert 0.05 in ISQF_QK_X, "0.05 knot required for direct p5 learning"
         assert 0.95 in ISQF_QK_X, "0.95 knot required for direct p95 learning"
