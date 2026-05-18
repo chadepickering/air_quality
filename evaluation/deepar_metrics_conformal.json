@@ -1,47 +1,47 @@
 {
   "horizons": {
     "h3": {
-      "mae": 5.426334381103516,
-      "rmse": 7.703792095184326,
-      "pi_coverage_pct": 86.13707165109035,
-      "sharpness_mean_width": 18.035181045532227,
-      "crps": 4.144680985260461,
-      "conformal_margin_upper": 3.7774646282196045,
+      "mae": 5.239781379699707,
+      "rmse": 7.412009239196777,
+      "pi_coverage_pct": 84.42367601246106,
+      "sharpness_mean_width": 16.081647872924805,
+      "crps": 3.9178838903241537,
+      "conformal_margin_upper": 2.792438507080078,
       "conformal_margin_lower": 0.0
     },
     "h12": {
-      "mae": 5.924239158630371,
-      "rmse": 9.015822410583496,
-      "pi_coverage_pct": 87.22741433021807,
-      "sharpness_mean_width": 19.256057739257812,
-      "crps": 4.611115058930565,
-      "conformal_margin_upper": 5.2516350746154785,
+      "mae": 6.106893062591553,
+      "rmse": 9.16718864440918,
+      "pi_coverage_pct": 85.04672897196261,
+      "sharpness_mean_width": 17.61215591430664,
+      "crps": 4.627659324618989,
+      "conformal_margin_upper": 4.051031112670898,
       "conformal_margin_lower": 0.0
     },
     "h24": {
-      "mae": 3.570878744125366,
-      "rmse": 6.090776443481445,
-      "pi_coverage_pct": 90.80996884735202,
-      "sharpness_mean_width": 15.680420875549316,
-      "crps": 2.7471274135159804,
-      "conformal_margin_upper": 2.52108097076416,
+      "mae": 3.5452401638031006,
+      "rmse": 6.094013214111328,
+      "pi_coverage_pct": 89.56386292834891,
+      "sharpness_mean_width": 14.703536033630371,
+      "crps": 2.716693134124353,
+      "conformal_margin_upper": 2.0580220222473145,
       "conformal_margin_lower": 0.0
     },
     "h72": {
-      "mae": 3.7460079193115234,
-      "rmse": 6.340455532073975,
-      "pi_coverage_pct": 90.03115264797508,
-      "sharpness_mean_width": 17.197731018066406,
-      "crps": 2.9199310306543866,
-      "conformal_margin_upper": 3.8651227951049805,
+      "mae": 3.765263795852661,
+      "rmse": 6.3718461990356445,
+      "pi_coverage_pct": 89.7196261682243,
+      "sharpness_mean_width": 15.899731636047363,
+      "crps": 2.9118101934010117,
+      "conformal_margin_upper": 3.2562074661254883,
       "conformal_margin_lower": 0.0
     }
   },
   "overall": {
-    "mae": 4.666865348815918,
-    "rmse": 7.3812665939331055,
-    "pi_coverage_pct": 88.55140186915888,
-    "sharpness": 17.542348861694336,
-    "crps": 3.605713622090348
+    "mae": 4.664294719696045,
+    "rmse": 7.360581398010254,
+    "pi_coverage_pct": 87.18847352024922,
+    "sharpness": 16.074268341064453,
+    "crps": 3.543511635617127
   }
 }

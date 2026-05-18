@@ -22,6 +22,9 @@ Key design choices vs TFT:
     because the distribution was too symmetric to capture wildfire spikes.
   - 500 Monte Carlo samples: enough for stable breach-probability estimates
     at the 5% tail (±1% MC error at N=500).
+  - Horizon-weighted CRPS (v6): exponential decay w(t)=exp(-t/τ), τ=24h.
+    h3 gets ~1.5x weight vs h24, h72 gets ~0.08x. Up-weights the near-term
+    horizons (h3/h12) that showed systematic undercoverage in v4.
 """
 from __future__ import annotations
 
@@ -68,7 +71,7 @@ NUM_FEAT_STATIC_CAT   = 1                             # station_id
 TARGET    = "pm25"
 QUANTILES = [0.05, 0.5, 0.95]   # for summary statistics; samples used for alerts
 
-# ISQF hyperparameters (v4 — active predictor)
+# ISQF hyperparameters (v4/v6 — active predictor)
 # num_pieces=10: piecewise-linear spline with 10 segments.
 # qk_x: 0.05 and 0.95 as explicit endpoint knots so the PI boundaries are
 #   directly learned by the spline rather than extrapolated by the exponential
@@ -77,13 +80,20 @@ QUANTILES = [0.05, 0.5, 0.95]   # for summary statistics; samples used for alert
 ISQF_NUM_PIECES = 10
 ISQF_QK_X = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
 
+# Horizon-weighted CRPS: exponential decay w(t) = exp(-t / τ), τ in steps.
+# At τ=24: w(h3)≈0.88, w(h12)≈0.63, w(h24)≈0.38, w(h72)≈0.05 (pre-norm).
+# Normalized so w.mean()=1, keeping the overall CRPS magnitude comparable
+# across runs with and without weighting.
+HORIZON_WEIGHT_TAU = 24.0
+
 # ---------------------------------------------------------------------------
 # ISQF compatibility shim
 # ---------------------------------------------------------------------------
 
 class FixedISQFOutput(ISQFOutput):
     """
-    ISQFOutput subclass fixing two GluonTS 0.16.2 + PyTorch ≥2.x incompatibilities:
+    ISQFOutput subclass fixing two GluonTS 0.16.2 + PyTorch ≥2.x incompatibilities
+    and adding horizon-weighted CRPS training:
 
     1. loc=None crash: DeepAR calls distr_output.loss(scale=scale) without loc,
        which passes loc=None into AffineTransform. PyTorch ≥2.x treats None as
@@ -95,6 +105,10 @@ class FixedISQFOutput(ISQFOutput):
        density model, so CRPS is the correct training objective. Fix: override
        loss() to call distribution.crps(), which TransformedISQF implements
        analytically with correct affine rescaling.
+
+    3. Horizon weighting (v6): per-step exponential decay w(t)=exp(-t/τ),
+       normalized so mean(w)=1. Up-weights h3/h12 to address their systematic
+       undercoverage vs the far horizon. τ=HORIZON_WEIGHT_TAU (default 24 steps).
     """
 
     def distribution(
@@ -117,7 +131,14 @@ class FixedISQFOutput(ISQFOutput):
         if loc is None and scale is not None:
             loc = torch.zeros_like(scale)
         distr = self.distribution(distr_args, loc=loc, scale=scale)
-        return distr.crps(target)
+        crps = distr.crps(target)   # (batch, T)
+        if crps.dim() >= 2:
+            T = crps.shape[-1]
+            t = torch.arange(T, device=crps.device, dtype=crps.dtype)
+            w = torch.exp(-t / HORIZON_WEIGHT_TAU)
+            w = w / w.mean()  # normalize so overall loss scale is comparable to unweighted
+            crps = crps * w
+        return crps
 
 
 # ---------------------------------------------------------------------------

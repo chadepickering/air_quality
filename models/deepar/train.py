@@ -28,6 +28,7 @@ from pathlib import Path
 import duckdb
 import numpy as np
 import pandas as pd
+import torch
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -195,6 +196,8 @@ def train(
         trainer_kwargs=trainer_kwargs,
     )
 
+    torch.manual_seed(42)
+    np.random.seed(42)
     print("Training...")
     predictor = estimator.train(
         training_data=train_ds,
